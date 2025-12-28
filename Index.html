@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WaterWorks: Engineering Hope</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+            background-color: #f0f7ff;
+        }
+        .game-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            background-color: #87CEEB; /* Sky Blue */
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            aspect-ratio: 16 / 6;
+        }
+        .ui-hidden {
+            display: none !important;
+        }
+        /* UI Windows */
+        .dialogue-box, .journal-ui, .start-screen, .end-screen, .feedback-modal, .filter-builder-ui, .purification-ui, .distribution-ui {
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #1f2937;
+            border-radius: 0.75rem;
+        }
+        /* Gamified Quiz Device Styles */
+        .device-casing {
+            background-color: #1f2937; /* Dark gray casing */
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 0 30px rgba(0,0,0,0.8);
+            border: 6px solid #374151;
+            position: relative;
+        }
+        .device-screen {
+            background-color: #f0f9ff;
+            position: relative;
+            overflow: hidden;
+            font-family: 'Poppins', sans-serif;
+        }
+        .scanline {
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 100, 255, 0.03) 51%);
+            background-size: 100% 4px;
+            animation: scroll 10s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes scroll { from { background-position: 0 0; } to { background-position: 0 100%; } }
+        
+        .tech-font { font-family: 'Share Tech Mono', monospace; }
+        
+        .quiz-option, .dialogue-option, .gatekeeper-option {
+            border: 2px solid #e5e7eb;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .quiz-option:hover, .gatekeeper-option:hover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            transform: translateX(5px);
+        }
+        .quiz-option.selected, .gatekeeper-option.selected {
+             background-color: #dbeafe;
+             border-color: #2563eb;
+        }
+         .quiz-option.correct, .gatekeeper-option.correct {
+            background-color: #dcfce7;
+            border-color: #16a34a;
+        }
+         .quiz-option.incorrect, .gatekeeper-option.incorrect {
+            background-color: #fee2e2;
+            border-color: #dc2626;
+        }
+        
+        /* Specific NPC Quiz Styles (Holographic feel) */
+        .npc-quiz-overlay {
+            background: rgba(17, 24, 39, 0.95);
+            border: 2px solid #3b82f6;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            color: #e5e7eb;
+        }
+        .npc-quiz-option {
+            background: rgba(31, 41, 55, 0.8);
+            border: 1px solid #4b5563;
+            color: #d1d5db;
+            margin-bottom: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 0.25rem;
+            transition: all 0.2s;
+            text-align: left;
+            width: 100%;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .npc-quiz-option:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #60a5fa;
+            color: white;
+        }
+        .npc-quiz-option.correct {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #34d399;
+            color: #34d399;
+        }
+        .npc-quiz-option.incorrect {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #f87171;
+            color: #f87171;
+        }
+
+        /* Other Styles */
+        .objective-item.completed {
+            text-decoration: line-through;
+            color: #9CA3AF;
+        }
+        .btn {
+            transition: all 0.3s ease;
+        }
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .journal-content-area {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 1rem;
+        }
+        .mentor-hint {
+            border-left: 4px solid #8b5cf6;
+            background-color: #f5f3ff;
+        }
+        
+        /* --- UPDATED INTRO ANIMATION STYLES (CLEAN) --- */
+        .intro-bg {
+            background: linear-gradient(to bottom, #0f172a, #1e293b);
+        }
+        .tornado-container {
+            position: relative;
+            width: 160px;
+            height: 240px;
+            z-index: 30;
+        }
+        .tornado-segment {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(148, 163, 184, 0.5); /* lighter gray */
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            box-shadow: inset 10px 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(255,255,255,0.1);
+            animation: tornado-spin 0.5s infinite linear alternate;
+        }
+        /* Stack segments */
+        .s1 { top: 0px; width: 140px; height: 30px; animation-duration: 0.6s; }
+        .s2 { top: 25px; width: 120px; height: 25px; animation-duration: 0.55s; }
+        .s3 { top: 45px; width: 100px; height: 25px; animation-duration: 0.5s; }
+        .s4 { top: 65px; width: 80px; height: 20px; animation-duration: 0.45s; }
+        .s5 { top: 80px; width: 60px; height: 15px; animation-duration: 0.4s; }
+        .s6 { top: 92px; width: 40px; height: 12px; animation-duration: 0.35s; }
+        .s7 { top: 100px; width: 20px; height: 10px; animation-duration: 0.3s; }
+
+        @keyframes tornado-spin {
+            0% { transform: translateX(-65%) scale(0.9); }
+            100% { transform: translateX(-35%) scale(1.1); }
+        }
+
+        /* Removed Rain Overlay, Lightning, and Surge Water styles */
+
+        /* Level 2 Styles */
+        .resource-item { cursor: grab; user-select: none; }
+        .resource-item:active { cursor: grabbing; }
+        .drop-zone { border: 2px dashed #cbd5e1; transition: background-color 0.3s ease; }
+        .drop-zone.over { background-color: #e0f2fe; }
+        .filter-layer { position: absolute; bottom: 0; left: 0; width: 100%; transition: all 0.5s ease; text-align: center; font-weight: 600; color: white; display: flex; align-items: center; justify-content: center; height: 22%; }
+        .water-animation { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 20px; height: 0; background-color: #a55a2a; transition: height 2s linear, background-color 1s ease 1s; }
+        .water-animation.clean { background-color: #3498db; }
+
+        /* Level 3 Styles */
+        .purification-ui .feedback-icon { font-size: 4rem; line-height: 1; }
+        @keyframes boil {
+            0% { transform: translateY(0) scale(1); opacity: 0.6; }
+            50% { transform: translateY(-8px) scale(1.1); opacity: 1; }
+            100% { transform: translateY(0) scale(1); opacity: 0.6; }
+        }
+        .boil-bubble {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background-color: #93c5fd;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: boil 0.8s infinite ease-in-out;
+        }
+        .boil-bubble:nth-child(2) { animation-delay: 0.2s; }
+        .boil-bubble:nth-child(3) { animation-delay: 0.4s; }
+        #boil-timer { font-weight: bold; color: #ef4444; }
+        #boil-clicks-needed { font-weight: bold; }
+
+        /* Level 4 Styles */
+        #pipe-grid { display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(6, 1fr); gap: 2px; background-color: #a3be8c; border: 4px solid #8fbcbb; }
+        /* Updated Grid Cell to ensure interactivity */
+        .grid-cell { 
+            background-color: #d8e2c0; 
+            background-size: cover; 
+            background-position: center; 
+            position: relative; 
+            z-index: 1; /* Ensure above background */
+            pointer-events: auto; /* Force clickable */
+        }
+        .grid-cell:hover {
+            filter: brightness(1.05); /* Visual feedback */
+        }
+        .pipe-piece { width: 100%; height: 100%; background-size: contain; background-repeat: no-repeat; background-position: center; cursor: grab; z-index: 2; }
+        .pipe-piece.disabled { cursor: not-allowed; opacity: 0.5; }
+        .pipe-piece:active:not(.disabled) { cursor: grabbing; }
+        .start-node { background-image: url('https://placehold.co/50x50/81A1C1/FFFFFF?text=💧'); }
+        .end-node { background-image: url('https://placehold.co/50x50/BF616A/FFFFFF?text=🏠'); }
+        .water-flow { background-color: rgba(67, 133, 245, 0.5); transition: background-color 0.1s linear; }
+        .obstacle-node { background-color: #a16207; text-align: center; font-size: 1.5rem; line-height: 1.4; color: #4b5563; }
+        .valve-marker {
+            position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 1.8rem; line-height: 1; color: #d97706;
+            opacity: 0.7; pointer-events: none;
+        }
+        .grid-cell.valve-active .valve-marker {
+            color: #f59e0b;
+            opacity: 1; pointer-events: auto;
+            cursor: pointer;
+            animation: pulse 1.5s infinite;
+        }
+         .grid-cell.valve-opened .valve-marker {
+            color: #16a34a;
+            opacity: 1; pointer-events: none;
+            cursor: default;
+            animation: none;
+        }
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        .dialogue-option {
+             background-color: #f9fafb;
+             padding: 0.75rem;
+             font-size: 0.9em;
+             border-color: #d1d5db;
+        }
+        .dialogue-option:hover {
+            background-color: #f3f4f6;
+            border-color: #d1d5db;
+        }
+        .dialogue-option.selected {
+             background-color: #dbeafe;
+             border-color: #93c5fd;
+        }
+         .dialogue-option.correct {
+            background-color: #dcfce7;
+            border-color: #86efac;
+        }
+         .dialogue-option.incorrect {
+            background-color: #fee2e2;
+            border-color: #fca5a5;
+        }
+         #quiz-feedback span.correct, #gatekeeper-feedback span.correct { color: #16a34a; }
+         #quiz-feedback span.incorrect, #gatekeeper-feedback span.incorrect { color: #dc2626; }
+         .dialogue-feedback.correct { color: #16a34a; font-weight: bold; }
+         .dialogue-feedback.incorrect { color: #dc2626; font-weight: bold; }
+
+         /* Elevation Buttons */
+         .elevation-btn {
+             transition: all 0.2s;
+             border: 2px solid #e5e7eb;
+         }
+         .elevation-btn.selected {
+             border-color: #ef4444;
+             background-color: #fef2f2;
+             color: #b91c1c;
+             font-weight: bold;
+         }
+
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="game-container" class="game-container">
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="absolute z-10 p-8 rounded-lg shadow-2xl text-center max-w-lg">
+            <h1 class="text-4xl font-bold text-blue-800 mb-2">WaterWorks</h1>
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Engineering Hope</h2>
+            <p class="text-gray-700 mb-6">
+                After a devastating hurricane, a coastal village’s water system is contaminated. As a student engineer volunteer, your mission is to help restore clean water to the community.
+            </p>
+
+            <div class="mb-4 text-left">
+                <label for="player-id-input" class="block text-sm font-bold text-gray-700 mb-1">Enter Player ID (Required for Tracking):</label>
+                <input type="text" id="player-id-input" placeholder="e.g. Student123" class="w-full p-2 border border-gray-300 rounded shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-gray-700 shadow-sm">
+                <h3 class="font-bold text-blue-800 mb-2 uppercase tracking-wide text-xs">Mission Controls</h3>
+                <ul class="space-y-2 text-left mx-auto w-fit">
+                    <li class="flex items-center gap-2">
+                        <span class="bg-white px-2 py-1 rounded border border-gray-300 font-mono text-xs font-bold shadow-sm">ARROWS / WASD</span>
+                        <span>to Move</span>
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <span class="bg-white px-2 py-1 rounded border border-gray-300 font-mono text-xs font-bold shadow-sm">SPACE</span>
+                        <span>to Jump</span>
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <span class="bg-white px-2 py-1 rounded border border-gray-300 font-mono text-xs font-bold shadow-sm">E</span>
+                        <span>to Interact with Villagers</span>
+                    </li>
+                </ul>
+            </div>
+
+            <button id="start-button" class="btn bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full text-lg shadow-lg">
+                Begin Mission
+            </button>
+        </div>
+
+        <!-- Intro Sequence (Tornado Only - No Rain Lines, No Surge Swipe) -->
+        <div id="intro-sequence" class="absolute inset-0 z-50 intro-bg flex flex-col items-center justify-center ui-hidden text-white overflow-hidden">
+            <!-- Removed Lightning, Rain Overlay, Surge Water -->
+            
+            <div class="tornado-container mb-8 z-30">
+                <div class="tornado-segment s1"></div>
+                <div class="tornado-segment s2"></div>
+                <div class="tornado-segment s3"></div>
+                <div class="tornado-segment s4"></div>
+                <div class="tornado-segment s5"></div>
+                <div class="tornado-segment s6"></div>
+                <div class="tornado-segment s7"></div>
+            </div>
+            
+            <h2 class="text-5xl font-black animate-pulse text-red-500 mb-2 z-30 tracking-tighter" style="text-shadow: 3px 3px 0 #000;">STORM SURGE WARNING</h2>
+            <p class="text-xl text-yellow-300 z-30 font-bold bg-black/50 px-4 py-1 rounded">SEEK HIGH GROUND IMMEDIATELY</p>
+        </div>
+
+        <!-- Main Game Screen (Original Level 1) -->
+        <div id="game-screen" class="ui-hidden w-full h-full flex items-center justify-center p-4">
+             <canvas id="game-canvas"></canvas>
+        </div>
+
+        <!-- UI Overlay (for Journal button) -->
+        <div id="main-ui-overlay" class="absolute top-4 right-4 z-20 ui-hidden">
+            <button id="journal-button" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                Journal
+            </button>
+        </div>
+
+        <!-- Dialogue Box -->
+        <div id="dialogue-box" class="absolute bottom-10 left-1/2 -translate-x-1/2 w-3/4 max-w-4xl p-6 rounded-xl shadow-2xl ui-hidden z-30">
+            <p id="dialogue-npc-name" class="font-bold text-lg text-blue-700 mb-2"></p>
+            <p id="dialogue-text" class="text-gray-800 mb-4"></p>
+            <!-- Container for dialogue options / quiz options -->
+            <div id="dialogue-options-container" class="space-y-3 mb-4"></div>
+             <!-- Feedback area for NPC quiz -->
+            <div id="dialogue-feedback" class="min-h-[20px] mb-4 text-center text-sm"></div>
+            <button id="dialogue-continue" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-full mt-4 float-right">
+                Continue
+            </button>
+        </div>
+
+        <!-- Journal UI -->
+        <div id="journal-ui" class="absolute inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center ui-hidden z-40">
+            <div class="journal-ui w-full max-w-2xl p-6 rounded-xl shadow-2xl relative">
+                <button id="journal-close-button" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 font-bold text-2xl">&times;</button>
+                <h3 class="text-2xl font-bold text-blue-800 mb-4 border-b border-gray-300 pb-2">Engineer's Journal</h3>
+                <div class="journal-content-area">
+                    <div>
+                        <h4 class="text-xl font-semibold text-gray-700 mb-2">Objectives</h4>
+                        <ul id="objectives-list" class="list-disc list-inside space-y-1 text-gray-600"></ul>
+                    </div>
+                    <div class="mt-4">
+                        <h4 class="text-xl font-semibold text-gray-700 mb-2">Clues & Notes</h4>
+                        <ul id="clues-list" class="list-disc list-inside space-y-1 text-gray-600">
+                             <li>Talk to the villagers to understand the problems they are facing.</li>
+                        </ul>
+                    </div>
+                    <div class="mt-6 border-t border-gray-300 pt-4">
+                        <div class="flex justify-between items-center">
+                             <h4 id="analysis-header" class="text-xl font-semibold text-gray-700 mb-2">Mentor's Analysis</h4>
+                             <button id="gemini-button" class="btn bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg text-sm" disabled>
+                                ✨ Synthesize Notes
+                             </button>
+                        </div>
+                        <div id="gemini-output" class="mt-2 p-3 bg-blue-50 rounded-lg min-h-[100px] text-gray-700 text-sm">
+                            <p id="gemini-placeholder">Talk to all villagers to unlock the AI analysis.</p>
+                            <div id="gemini-loader" class="loader ui-hidden"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+         <!-- Level 1 End Screen (Now shown after quiz) -->
+        <div id="l1-end-screen" class="absolute z-10 p-8 rounded-lg shadow-2xl text-center max-w-lg ui-hidden">
+            <h1 class="text-3xl font-bold text-green-700 mb-4">Level 1 Complete!</h1>
+             <p id="l1-end-quiz-result" class="text-gray-700 mb-2 font-semibold"></p>
+            <p class="text-gray-700 mb-6">
+                You've successfully gathered information and found a high point. Now it's time to design a solution.
+            </p>
+            <button id="continue-l2-button" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full text-lg shadow-lg">
+                Continue to Level 2
+            </button>
+        </div>
+
+        <!-- GAMIFIED QUIZ UI (Challenge Room) -->
+        <div id="quiz-ui" class="quiz-ui ui-hidden absolute inset-0 z-50 flex items-center justify-center p-8">
+            <div class="device-casing w-full max-w-3xl flex flex-col">
+                <div class="absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 bg-gray-900 rounded-full border border-gray-700 shadow-inner"></div>
+                
+                <div class="device-screen bg-slate-50 flex-grow m-2 rounded-xl flex flex-col h-[550px]">
+                    <div class="scanline absolute inset-0 z-10"></div>
+                    
+                    <!-- Device Header -->
+                    <div class="bg-slate-800 text-cyan-400 p-3 flex justify-between items-center text-xs font-mono border-b-2 border-slate-700">
+                        <span class="flex items-center gap-2"><div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> CONN: ESTABLISHED</span>
+                        <span class="tech-font">BATTERY: 84% [|||||||]</span>
+                    </div>
+
+                    <div class="p-8 flex flex-col h-full overflow-y-auto relative z-20">
+                        <div class="flex justify-between items-end mb-6 border-b-2 border-slate-200 pb-2">
+                            <h2 class="text-2xl font-bold text-slate-800 tech-font uppercase">Verification Protocol</h2>
+                            <div class="text-sm font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">INTEGRITY: <span id="integrity-score">100%</span></div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="w-full bg-gray-200 rounded-full h-3 mb-6 border border-gray-300">
+                            <div id="quiz-progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+
+                        <div id="quiz-question" class="text-xl font-semibold mb-6 text-slate-700 leading-relaxed">System Initializing...</div>
+                        
+                        <div id="quiz-options" class="space-y-3 mb-6 flex-grow">
+                            <!-- Options populated by JS -->
+                        </div>
+                        
+                        <div id="quiz-feedback" class="min-h-[50px] mb-4 text-center font-bold">
+                            <!-- Feedback populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Device Footer -->
+                    <div class="p-4 bg-slate-100 border-t border-slate-200 flex justify-end z-20">
+                        <button id="quiz-next-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded tech-font uppercase tracking-wider shadow-lg ui-hidden">
+                            CONFIRM ENTRY >>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+         <!-- GAMIFIED GATEKEEPER UI (Before L3) -->
+        <div id="gatekeeper-quiz-ui" class="gatekeeper-quiz-ui ui-hidden absolute inset-0 z-50 flex items-center justify-center p-8">
+            <div class="device-casing w-full max-w-2xl flex flex-col">
+                <div class="absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 bg-gray-900 rounded-full border border-gray-700 shadow-inner"></div>
+                
+                <div class="device-screen bg-slate-50 flex-grow m-2 rounded-xl flex flex-col">
+                    <div class="scanline absolute inset-0 z-10"></div>
+                    
+                    <div class="bg-slate-800 text-yellow-400 p-3 flex justify-between items-center text-xs font-mono border-b-2 border-slate-700">
+                        <span class="flex items-center gap-2"><div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div> ALERT: SAFETY CHECK REQUIRED</span>
+                        <span class="tech-font">SECURE CHANNEL</span>
+                    </div>
+
+                    <div class="p-8 relative z-20">
+                        <h2 class="text-xl font-bold text-slate-800 mb-2 tech-font uppercase border-b border-slate-300 pb-2">Safety Clearance Check</h2>
+                        <p class="mb-6 text-sm text-slate-500">Verify engineering protocols before proceeding to biological treatment phase.</p>
+                        
+                        <div id="gatekeeper-question" class="text-lg font-semibold mb-6 text-slate-700">Loading protocol...</div>
+                        
+                        <div id="gatekeeper-options" class="space-y-4 mb-6">
+                            <!-- Options populated by JS -->
+                        </div>
+                        
+                        <div id="gatekeeper-feedback" class="min-h-[40px] mb-6 text-center font-bold">
+                            <!-- Feedback populated by JS -->
+                        </div>
+                        
+                        <button id="gatekeeper-continue-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded tech-font uppercase tracking-wider shadow-lg ui-hidden">
+                            AUTHORIZE & PROCEED
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Level 2: Filter Builder -->
+        <div id="filter-builder-ui" class="filter-builder-ui ui-hidden absolute inset-0 z-20 flex flex-col items-center justify-center p-8">
+            <div class="w-full max-w-6xl mx-auto">
+                <h1 class="text-3xl font-bold text-blue-800 text-center mb-2">Level 2: Basic Filtration</h1>
+                <p class="text-gray-600 text-center mb-6">Drag resources into the filter container to remove sediment.</p>
+                <div class="grid grid-cols-3 gap-8 items-start">
+                    <div class="col-span-1 bg-white p-4 rounded-lg shadow-lg"> <!-- Light bg -->
+                        <h3 class="font-bold text-lg mb-4 text-center text-gray-800">Available Resources</h3>
+                        <div id="l2-resource-list" class="space-y-4">
+                             <div id="l2-resource-gravel" class="resource-item p-4 bg-gray-500 text-white rounded-lg text-center shadow" draggable="true" data-resource="Gravel">Gravel</div>
+                            <div id="l2-resource-sand" class="resource-item p-4 bg-yellow-500 text-white rounded-lg text-center shadow" draggable="true" data-resource="Sand">Sand</div>
+                            <div id="l2-resource-charcoal" class="resource-item p-4 bg-gray-900 text-white rounded-lg text-center shadow" draggable="true" data-resource="Charcoal">Charcoal</div>
+                            <div id="l2-resource-clay" class="resource-item p-4 bg-orange-700 text-white rounded-lg text-center shadow" draggable="true" data-resource="Clay">Clay</div>
+                            <div id="l2-resource-silt" class="resource-item p-4 bg-yellow-900 text-white rounded-lg text-center shadow" draggable="true" data-resource="Silt">Silt</div>
+                            <div id="l2-resource-leaves" class="resource-item p-4 bg-green-700 text-white rounded-lg text-center shadow" draggable="true" data-resource="Leaves">Leaves</div>
+                        </div>
+                        <button id="reset-filter-button" class="btn bg-red-500 hover:bg-red-600 w-full text-white font-bold py-2 px-4 rounded-lg mt-8">Reset Filter</button>
+                    </div>
+                    <div class="col-span-1 flex flex-col items-center">
+                        <h3 class="font-bold text-lg mb-4 text-gray-800">Filter Container</h3>
+                        <div id="filter-container" class="drop-zone w-48 h-80 bg-blue-100 rounded-lg relative overflow-hidden"></div>
+                        <button id="test-filter-button" class="btn bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg mt-4 w-48" disabled>Test Filter</button>
+                    </div>
+                    <div class="col-span-1 bg-white p-4 rounded-lg shadow-lg min-h-[300px]">
+                        <h3 class="font-bold text-lg mb-4 text-center text-gray-800">Simulation Results</h3>
+                        <div class="flex justify-center items-center mb-4">
+                            <div class="w-24 h-48 bg-gray-200 rounded-lg relative overflow-hidden">
+                                <div id="water-animation" class="water-animation"></div>
+                                <div class="absolute bottom-0 w-full h-1/4 bg-blue-300"></div>
+                            </div>
+                        </div>
+                        <div id="feedback-box" class="text-center text-gray-700">
+                            <p>Build your filter and run a test.</p>
+                        </div>
+                        <div id="mentor-hint-box" class="mentor-hint p-3 mt-4 rounded-lg ui-hidden">
+                            <p class="font-semibold text-purple-800">Mentor's Advice:</p>
+                            <p id="mentor-hint-text" class="text-sm text-purple-700"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+         <!-- Level 2 End Screen -->
+        <div id="l2-end-screen" class="absolute z-10 p-8 rounded-lg shadow-2xl text-center max-w-lg ui-hidden">
+            <h1 class="text-3xl font-bold text-green-700 mb-4">Level 2 Complete!</h1>
+            <p class="text-gray-700 mb-6">You've designed a filtration system. Next, you must purify the water from harmful bacteria.</p>
+             <!-- Button now triggers gatekeeper quiz -->
+            <button id="start-gatekeeper-button" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full text-lg shadow-lg">
+                Continue to Purification
+            </button>
+        </div>
+
+        <!-- Level 3: Purification -->
+        <div id="purification-ui" class="purification-ui ui-hidden absolute inset-0 z-20 flex flex-col items-center justify-center p-8">
+            <div class="w-full max-w-4xl mx-auto text-center">
+                <h1 class="text-3xl font-bold text-blue-800 mb-2">Level 3: Purification & Disinfection</h1>
+                <div id="purification-choice">
+                     <p class="text-gray-600 mb-8">Choose a method to disinfect the water. Consider the volume (~<span id="display-tank-volume">1000</span>L) needed for the community.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div id="select-chlorine-button" class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer">
+                            <h3 class="font-bold text-xl text-blue-700 mb-2">Use Chlorine Drops</h3>
+                            <p class="text-gray-600 text-sm">Efficient chemical purification. Requires precise calculation.</p>
+                        </div>
+                        <div id="select-bleach-button" class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer">
+                            <h3 class="font-bold text-xl text-yellow-700 mb-2">Use Household Bleach</h3>
+                            <p class="text-gray-600 text-sm">Common alternative (unscented 6%). Requires different calculation.</p>
+                        </div>
+                         <div id="select-boil-button" class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer">
+                            <h3 class="font-bold text-xl text-red-700 mb-2">Boil Water</h3>
+                            <p class="text-gray-600 text-sm">Simple and effective, but requires fuel and time, especially for large volumes.</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Calculator Section (Remains hidden for Boiling) -->
+                <div id="purification-calculator" class="ui-hidden relative"> <!-- Added relative for button positioning -->
+                    <button id="change-method-button" class="mb-4 text-sm text-blue-500 hover:underline font-bold self-start absolute top-0 left-0 -mt-8">« Change Method</button>
+                    <p class="text-gray-600 mb-8 mt-2">You chose <strong id="selected-chemical-text"></strong>. <span id="instruction-text">Calculate the correct dosage.</span></p>
+                    
+                    <div id="purification-grid" class="grid grid-cols-2 gap-8 items-center">
+                        <div id="chemical-input-panel" class="bg-white p-6 rounded-lg shadow-lg text-left relative">
+                            <h3 class="font-bold text-lg mb-4 text-gray-800">Water Tank Specifications</h3>
+                            <ul class="space-y-2 text-gray-700">
+                                <li><strong>Volume:</strong> <span id="tank-volume">1000</span> Liters</li>
+                                <li><strong>Required Dosage:</strong> <span id="dosage-rate">2</span> drops per Liter</li>
+                            </ul>
+                            <div class="mt-6">
+                                <label for="chlorine-input" class="block font-semibold text-gray-800 mb-2">Total Dosage (drops):</label>
+                                <input type="number" id="chlorine-input" class="w-full p-2 border border-gray-300 rounded-lg text-gray-900" placeholder="e.g., 2000">
+                            </div>
+                            <button id="treat-water-button" class="btn bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg mt-4 w-48 bg-gray-500 text-white font-bold py-3 px-6 rounded-lg mt-4 w-full">Treat Water</button>
+                        </div>
+                        <!-- Results Area (Used by both Calculator and Boiling) -->
+                        <div id="purification-results-area" class="bg-white p-6 rounded-lg shadow-lg min-h-[300px] flex flex-col justify-center items-center">
+                            <h3 id="purification-results-title" class="font-bold text-lg mb-4 text-gray-800">Water Quality Test</h3>
+                            <div id="purification-feedback" class="text-center w-full">
+                                <div class="feedback-icon text-gray-400">💧</div>
+                                <p class="text-gray-600">Enter dosage and click "Treat Water".</p>
+                            </div>
+                             <div id="purification-mentor-hint-box" class="mentor-hint p-3 mt-4 rounded-lg ui-hidden w-full">
+                                <p class="font-semibold text-purple-800">Mentor's Advice:</p>
+                                <p id="purification-mentor-hint-text" class="text-sm text-purple-700"></p>
+                            </div>
+                            <!-- Boiling Slider Elements (New) -->
+                            <div id="boil-minigame" class="ui-hidden w-full text-left mt-4 border-t pt-4">
+                                <div class="mb-4">
+                                    <p class="font-bold text-gray-700 mb-2 text-sm uppercase">Step 1: Confirm Elevation Zone</p>
+                                    <div class="flex gap-2">
+                                        <button id="elev-low" onclick="selectElevation('low')" class="elevation-btn flex-1 py-2 px-3 rounded text-sm text-center bg-white text-gray-600 hover:bg-gray-50">
+                                            Low Elevation<br><span class="text-xs font-normal">(< 6,500 ft)</span>
+                                        </button>
+                                        <button id="elev-high" onclick="selectElevation('high')" class="elevation-btn flex-1 py-2 px-3 rounded text-sm text-center bg-white text-gray-600 hover:bg-gray-50">
+                                            High Elevation<br><span class="text-xs font-normal">(> 6,500 ft)</span>
+                                        </button>
+                                    </div>
+                                    <!-- Removed Current Reading Text -->
+                                </div>
+
+                                <div id="boil-time-container" class="opacity-50 pointer-events-none transition-opacity">
+                                    <label class="block font-bold text-gray-700 mb-2 text-sm uppercase">Step 2: Set Boil Duration</label>
+                                    <div class="flex items-center gap-4 mb-6">
+                                        <input type="range" id="boil-slider" min="0" max="10" step="1" value="0" class="flex-grow h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-500">
+                                        <div class="flex flex-col items-center">
+                                            <span id="boil-time-display" class="font-mono text-3xl font-bold text-red-600">0</span>
+                                            <span class="text-xs text-gray-500 font-bold uppercase">Min</span>
+                                        </div>
+                                    </div>
+                                    <button id="start-boil-button" class="btn bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg w-full shadow-md transition-colors">Start Boiling Process</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Level 3 End Screen -->
+        <div id="l3-end-screen" class="absolute z-10 p-8 rounded-lg shadow-2xl text-center max-w-lg ui-hidden">
+            <h1 class="text-3xl font-bold text-green-700 mb-4">Level 3 Complete!</h1>
+            <p class="text-gray-700 mb-6">Excellent work! The water is now filtered and purified. The final step is to design a system to distribute it to the village.</p>
+            <button id="continue-l4-button" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full text-lg shadow-lg">
+                Continue to Level 4
+            </button>
+        </div>
+
+        <!-- Level 4: Distribution -->
+        <div id="distribution-ui" class="distribution-ui ui-hidden absolute inset-0 z-20 flex flex-col items-center justify-center p-8">
+            <div class="w-full max-w-6xl mx-auto">
+                <h1 class="text-3xl font-bold text-blue-800 text-center mb-2">Level 4: Water Distribution</h1>
+                <p class="text-gray-600 text-center mb-6">Design a pipeline to carry clean water. Watch out for obstacles and limited pipes!</p>
+                <div class="grid grid-cols-4 gap-6">
+                    <div class="col-span-1 bg-white p-4 rounded-lg shadow-lg"> <!-- Light bg -->
+                        <h3 class="font-bold text-lg mb-4 text-center text-gray-800">Pipe Palette</h3>
+                        <p class="text-xs text-center text-gray-500 mb-4">Click a piece to rotate it.</p>
+                        <div id="pipe-palette" class="space-y-4">
+                            <!-- Pipe pieces will be generated by JS -->
+                        </div>
+                        <button id="reset-pipes-button" class="btn bg-red-500 hover:bg-red-600 w-full text-white font-bold py-2 px-4 rounded-lg mt-8">Reset Pipes</button>
+                    </div>
+                    <div class="col-span-3 bg-white p-4 rounded-lg shadow-lg"> <!-- Light bg -->
+                        <div id="pipe-grid" class="w-full aspect-[10/6] relative"></div>
+                        <div class="flex justify-between items-center mt-4">
+                             <div id="pipe-feedback-box" class="text-center text-gray-700">
+                                <p>Drag pipes from the palette to the grid.</p>
+                            </div>
+                            <button id="test-system-button" class="btn bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg">Test System</button>
+                        </div>
+                         <div id="pipe-mentor-hint-box" class="mentor-hint p-3 mt-4 rounded-lg ui-hidden w-full">
+                            <p class="font-semibold text-purple-800">Mentor's Advice:</p>
+                            <p id="pipe-mentor-hint-text" class="text-sm text-purple-700"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+    // --- DOM ELEMENTS ---
+    const gameContainer = document.getElementById('game-container');
+    const startScreen = document.getElementById('start-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const startButton = document.getElementById('start-button');
+    const introSequence = document.getElementById('intro-sequence');
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const uiOverlay = document.getElementById('main-ui-overlay');
+    const dialogueBox = document.getElementById('dialogue-box');
+    const dialogueNpcName = document.getElementById('dialogue-npc-name');
+    const dialogueText = document.getElementById('dialogue-text');
+    const dialogueOptionsContainer = document.getElementById('dialogue-options-container');
+    const dialogueFeedbackEl = document.getElementById('dialogue-feedback');
+    const dialogueContinue = document.getElementById('dialogue-continue');
+    const journalButton = document.getElementById('journal-button');
+    const journalUi = document.getElementById('journal-ui');
+    const journalCloseButton = document.getElementById('journal-close-button');
+    const objectivesList = document.getElementById('objectives-list');
+    const cluesList = document.getElementById('clues-list');
+    const geminiButton = document.getElementById('gemini-button');
+    const analysisHeader = document.getElementById('analysis-header');
+    const geminiOutput = document.getElementById('gemini-output');
+    const geminiPlaceholder = document.getElementById('gemini-placeholder');
+    const geminiLoader = document.getElementById('gemini-loader');
+    const l1EndScreen = document.getElementById('l1-end-screen');
+    const l1EndQuizResult = document.getElementById('l1-end-quiz-result');
+    const continueL2Button = document.getElementById('continue-l2-button');
+
+    // Quiz Elements
+    const quizUi = document.getElementById('quiz-ui');
+    const quizQuestionEl = document.getElementById('quiz-question');
+    const quizOptionsEl = document.getElementById('quiz-options');
+    const quizFeedbackEl = document.getElementById('quiz-feedback');
+    const quizNextButton = document.getElementById('quiz-next-button');
+    const quizProgressBar = document.getElementById('quiz-progress-bar');
+    const integrityScoreEl = document.getElementById('integrity-score');
+
+    // Gatekeeper Quiz Elements
+    const gatekeeperQuizUi = document.getElementById('gatekeeper-quiz-ui');
+    const gatekeeperQuestionEl = document.getElementById('gatekeeper-question');
+    const gatekeeperOptionsEl = document.getElementById('gatekeeper-options');
+    const gatekeeperFeedbackEl = document.getElementById('gatekeeper-feedback');
+    const gatekeeperContinueButton = document.getElementById('gatekeeper-continue-button');
+    const startGatekeeperButton = document.getElementById('start-gatekeeper-button');
+
+    // L2 Elements
+    const filterBuilderUi = document.getElementById('filter-builder-ui');
+    const l2ResourceList = document.getElementById('l2-resource-list');
+    const l2Gravel = document.getElementById('l2-resource-gravel');
+    const l2Sand = document.getElementById('l2-resource-sand');
+    const l2Charcoal = document.getElementById('l2-resource-charcoal');
+    const l2Clay = document.getElementById('l2-resource-clay');
+    const l2Silt = document.getElementById('l2-resource-silt');
+    const l2Leaves = document.getElementById('l2-resource-leaves');
+    const filterContainer = document.getElementById('filter-container');
+    const testFilterButton = document.getElementById('test-filter-button');
+    const resetFilterButton = document.getElementById('reset-filter-button');
+    const waterAnimation = document.getElementById('water-animation');
+    const feedbackBox = document.getElementById('feedback-box');
+    const mentorHintBox = document.getElementById('mentor-hint-box');
+    const mentorHintText = document.getElementById('mentor-hint-text');
+    const l2EndScreen = document.getElementById('l2-end-screen');
+
+    // L3 Elements
+    const purificationUi = document.getElementById('purification-ui');
+    const purificationChoice = document.getElementById('purification-choice');
+    const purificationCalculator = document.getElementById('purification-calculator');
+    const purificationGrid = document.getElementById('purification-grid');
+    const chemicalInputPanel = document.getElementById('chemical-input-panel');
+    const purificationResultsArea = document.getElementById('purification-results-area');
+    const purificationResultsTitle = document.getElementById('purification-results-title');
+    const selectChlorineButton = document.getElementById('select-chlorine-button');
+    const selectBleachButton = document.getElementById('select-bleach-button');
+    const selectBoilButton = document.getElementById('select-boil-button');
+    const changeMethodButton = document.getElementById('change-method-button');
+    const selectedChemicalText = document.getElementById('selected-chemical-text');
+    const instructionText = document.getElementById('instruction-text');
+    const tankVolumeEl = document.getElementById('tank-volume');
+    const dosageRateEl = document.getElementById('dosage-rate');
+    const chlorineInput = document.getElementById('chlorine-input');
+    const treatWaterButton = document.getElementById('treat-water-button');
+    const purificationFeedback = document.getElementById('purification-feedback');
+    const purificationMentorHintBox = document.getElementById('purification-mentor-hint-box');
+    const purificationMentorHintText = document.getElementById('purification-mentor-hint-text');
+    const boilMinigameEl = document.getElementById('boil-minigame');
+    const boilSlider = document.getElementById('boil-slider');
+    const boilTimeDisplay = document.getElementById('boil-time-display');
+    const startBoilButton = document.getElementById('start-boil-button');
+    const boilTimeContainer = document.getElementById('boil-time-container');
+    const l3EndScreen = document.getElementById('l3-end-screen');
+    const continueL4Button = document.getElementById('continue-l4-button');
+    const displayTankVolumeEl = document.getElementById('display-tank-volume');
+
+    // L4 Elements
+    const distributionUi = document.getElementById('distribution-ui');
+    const pipePalette = document.getElementById('pipe-palette');
+    const pipeGrid = document.getElementById('pipe-grid');
+    const resetPipesButton = document.getElementById('reset-pipes-button');
+    const testSystemButton = document.getElementById('test-system-button');
+    const pipeFeedbackBox = document.getElementById('pipe-feedback-box');
+    const pipeMentorHintBox = document.getElementById('pipe-mentor-hint-box');
+    const pipeMentorHintText = document.getElementById('pipe-mentor-hint-text');
+
+    // --- TRACKING DATA ---
+    const sessionData = {
+        playerId: "Anonymous",
+        startTime: null,
+        endTime: null,
+        levelTimes: { 1: 0, 2: 0, 3: 0, 4: 0 },
+        quizResults: [],
+        taskEvents: []
+    };
+    let currentLevelStart = 0;
+
+    // --- QUIZ DATA ---
+    const quizData = [
+         { context: 'level1_challenge', question: "What is the center of a hurricane called?", options: ["The eye", "The core", "The storm wall", "The vortex"], correct: "The eye" },
+         { context: 'gatekeeper', question: "Is it safe to go outside during a hurricane?", options: ["Yes", "No", "Only with supervision", "Only if the rain stops"], correct: "No" },
+         { context: 'level1_challenge', question: "On the Saffir-Simpson hurricane scale, how many categories of hurricanes are there?", options: ["5", "7", "3", "4"], correct: "5" },
+         { context: 'level1_challenge', question: "The Atlantic hurricane season starts June 1 and ends on:", options: ["Nov. 30", "Oct. 30", "Dec. 31", "Sept. 15"], correct: "Nov. 30" },
+         { context: 'npc_elder', question: "What is the most devastating element of a hurricane?", options: ["Storm surge", "Wind", "Rain", "Lightning"], correct: "Storm surge" }, // NPC question
+         { context: 'level1_challenge', question: "What percentage of coastal dwellers are ready for a hurricane?", options: ["50%", "75%", "90%", "25%"], correct: "50%" },
+         { context: 'level1_challenge', question: "Is there a difference between a hurricane and a typhoon?", options: ["Yes", "No"], correct: "No" },
+         { context: 'level1_challenge', question: "What wind speeds are associated with a tropical storm?", options: ["39 – 73 mph", "20 – 38 mph", "74 – 95 mph", "96 – 110 mph"], correct: "39 – 73 mph" },
+         { context: 'level1_challenge', question: "How warm does the water temperature have to be for a hurricane to form?", options: ["80", "65", "75", "70"], correct: "80" },
+         { context: 'level1_challenge', question: "What year did the U.S. Weather Bureau switch to using men's names, as well as women's names?", options: ["1979", "1960", "1972", "1965"], correct: "1979" }
+    ];
+    let challengeQuizQuestions = quizData.filter(q => q.context === 'level1_challenge');
+    let currentChallengeQuestionIndex = 0;
+    let challengeQuizScore = 0;
+    let challengeQuizAnswered = false;
+    let npcQuizAnswered = {};
+
+    // --- GAME STATE & CONFIG ---
+    let gameActive = false;
+    const gameState = {
+        level: 1,
+        objectives: [],
+        clues: [],
+        playerInDialogue: false,
+        journalOpen: false,
+        geminiAnalysisComplete: false,
+        mentorAnalysis: null,
+        filterLayers: [],
+        purificationMethod: null,
+        pipeGridState: [],
+        // Reverted inventory: Back to 8 Straight pipes for original difficulty
+        pipeInventory: { straight: 8, elbow: 12 },
+        selectedElevation: null
+    };
+    const levelConfig = {
+        1: { objectives: [
+            { text: "Talk to the Village Elder", id: 'talk_elder' },
+            { text: "Talk to the Mother", id: 'talk_mother' },
+            { text: "Talk to the Farmer", id: 'talk_farmer' },
+            { text: "Find a high point for a water tower", id: 'find_high_ground' },
+        ] },
+        2: { objectives: [ { text: "Build a filter to remove sediment", id: 'build_filter' }, { text: "Test the filter design", id: 'test_filter' } ] },
+        3: { objectives: [ { text: "Select a purification method", id: 'select_method' }, { text: "Successfully purify the water", id: 'purify_water' } ] },
+        4: { objectives: [ { text: "Connect the pipeline from source to village", id: 'design_pipes' }, { text: "Open the valves", id: 'open_valves' }, { text: "Test the distribution system", id: 'test_pipes' } ] }
+    };
+
+    // L4 Config
+    const pipeTypes = {
+        'straight': { connections: ['top', 'bottom'], rotations: 2 },
+        'elbow': { connections: ['top', 'right'], rotations: 4 },
+    };
+    const gridConfig = {
+        rows: 6, cols: 10,
+        start: {r: 2, c: 0}, end: {r: 3, c: 9},
+        obstacles: [
+            {r: 1, c: 3}, {r: 2, c: 3}, {r: 3, c: 3}, 
+            {r: 4, c: 6}, {r: 4, c: 7},             
+            {r: 1, c: 6}, {r: 1, c: 7},             
+            {r: 5, c: 1},                           
+            {r: 0, c: 8}, {r: 4, c: 2}              
+        ],
+        valves: [ {r: 2, c: 5}, {r: 4, c: 8} ] 
+    };
+    let valvesToOpen = [];
+    let valvesOpened = 0;
+
+    // --- PHYSICS & STATE ---
+    const gravity = 0.5;
+    const world = { width: 1600, height: 600 };
+    canvas.width = world.width; canvas.height = world.height;
+    const camera = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+    const player = { x: 100, y: world.height - 100, width: 40, height: 60, dx: 0, dy: 0, speed: 5, jumpPower: 12, isJumping: false, grounded: false, color: '#3B82F6' };
+    const keys = { left: false, right: false, up: false };
+    const platforms = [
+        { x: 0, y: world.height - 40, width: world.width, height: 40, color: '#22C55E' }, 
+        { x: 200, y: world.height - 100, width: 250, height: 20, color: '#A16207' }, 
+        { x: 480, y: world.height - 180, width: 150, height: 20, color: '#6B7280', moving: true, dx: 1, range: 100, speed: 1.5, originalX: 480 },
+        { x: 800, y: world.height - 120, width: 200, height: 20, color: '#A16207' }, 
+        { x: 1150, y: world.height - 150, width: 180, height: 20, color: '#A16207' }, 
+        { x: 1300, y: world.height - 250, width: 300, height: 20, color: '#6B7280' }, 
+        { x: 1350, y: world.height - 350, width: 250, height: 20, color: '#6B7280' }, 
+        { x: 1400, y: world.height - 450, width: 200, height: 20, color: '#6B7280' }, 
+    ];
+    const clouds = [
+        {x: 200, y: 100, scale: 1, speed: 0.2},
+        {x: 700, y: 150, scale: 1.2, speed: 0.3},
+        {x: 1200, y: 120, scale: 0.8, speed: 0.25},
+        {x: 1500, y: 80, scale: 1.1, speed: 0.35}
+    ];
+
+    const npcs = [
+        { id: 'elder', name: 'Village Elder', x: 300, y: world.height - 100 - 55, width: 40, height: 55, color: '#7C3AED', dialogue: ["Welcome, young engineer...", "Before we discuss the well, a quick question...", { quizContext: 'npc_elder' }, "Our well... is now filled with saltwater...", "We need help..."], clue: "The main well is contaminated with saltwater.", patrolMinX: 220, patrolMaxX: 430, dx: 0.5 },
+        { id: 'mother', name: 'Mother', x: 850, y: world.height - 120 - 55, width: 40, height: 55, color: '#EC4899', dialogue: ["My children... they have been sick...", "We've been forced to drink from the river...", "Anything you can do would be a blessing."], clue: "People are getting sick from drinking muddy river water.", patrolMinX: 820, patrolMaxX: 980, dx: -0.5 },
+        { id: 'farmer', name: 'Farmer', x: 1180, y: world.height - 150 - 55, width: 40, height: 55, color: '#F97316', dialogue: ["My crops are failing...", "And now with no clean water...", "We need a system that can provide clean water..."], clue: "The community needs a reliable, long-term water source.", patrolMinX: 1170, patrolMaxX: 1310, dx: 0.5 },
+    ];
+    let currentNpcDialogueIndex = 0; 
+    let currentNpc = null; 
+
+    // --- EVENT LISTENERS ---
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    startButton.addEventListener('click', handleStartClick); // CHANGED
+    journalButton.addEventListener('click', toggleJournal);
+    journalCloseButton.addEventListener('click', toggleJournal);
+    geminiButton.addEventListener('click', callGeminiAPI);
+    continueL2Button.addEventListener('click', startLevel2);
+    startGatekeeperButton.addEventListener('click', startGatekeeperQuiz);
+    gatekeeperContinueButton.addEventListener('click', startLevel3);
+    continueL4Button.addEventListener('click', startLevel4);
+    quizNextButton.addEventListener('click', displayNextChallengeQuestion);
+
+    // L2 Listeners
+    l2ResourceList.addEventListener('dragstart', handleDragStart);
+    filterContainer.addEventListener('dragover', handleDragOver);
+    filterContainer.addEventListener('drop', handleDrop);
+    filterContainer.addEventListener('dragleave', handleDragLeave);
+    testFilterButton.addEventListener('click', testFilter);
+    resetFilterButton.addEventListener('click', resetFilter);
+
+    // L3 Listeners
+    selectChlorineButton.addEventListener('click', () => selectPurificationMethod('Chlorine'));
+    selectBleachButton.addEventListener('click', () => selectPurificationMethod('Bleach'));
+    selectBoilButton.addEventListener('click', () => selectPurificationMethod('Boil'));
+    changeMethodButton.addEventListener('click', () => {
+        purificationCalculator.classList.add('ui-hidden');
+        purificationChoice.classList.remove('ui-hidden');
+        boilMinigameEl.classList.add('ui-hidden');
+        purificationFeedback.innerHTML = `<div class="feedback-icon text-gray-400">💧</div><p class="text-gray-600">Select a purification method.</p>`;
+    });
+    treatWaterButton.addEventListener('click', treatWater);
+    boilSlider.addEventListener('input', (e) => { boilTimeDisplay.textContent = e.target.value; });
+    startBoilButton.addEventListener('click', handleBoilSubmit);
+
+    // L4 Listeners
+    testSystemButton.addEventListener('click', testPipeSystem);
+    resetPipesButton.addEventListener('click', setupPipeGrid);
+    pipeGrid.addEventListener('click', handleValveClick);
+
+    // --- TRACKING HELPERS ---
+    function logTime(level) {
+        const now = Date.now();
+        if (currentLevelStart > 0) {
+            const duration = (now - currentLevelStart) / 1000;
+            sessionData.levelTimes[level] += duration;
+        }
+        currentLevelStart = now;
+    }
+
+    function logQuizResult(question, selected, correct) {
+        sessionData.quizResults.push({
+            timestamp: new Date().toISOString(),
+            question: question,
+            selected: selected,
+            correct: selected === correct
+        });
+    }
+
+    function logTaskEvent(action) {
+        sessionData.taskEvents.push({
+            timestamp: new Date().toISOString(),
+            action: action
+        });
+    }
+
+    function downloadReport() {
+        // Finalize time for Level 4
+        logTime(4);
+        
+        let report = `WATERWORKS: ENGINEERING HOPE - PLAYER REPORT\n`;
+        report += `Player ID: ${sessionData.playerId}\n`;
+        report += `Date: ${new Date().toLocaleString()}\n`;
+        // Ensure startTime is valid number
+        const duration = sessionData.startTime ? ((Date.now() - sessionData.startTime) / 1000 / 60).toFixed(2) : "0.00";
+        report += `Total Session Time: ${duration} minutes\n\n`;
+        
+        report += `--- LEVEL DURATIONS ---\n`;
+        for (let i = 1; i <= 4; i++) {
+            report += `Level ${i}: ${sessionData.levelTimes[i].toFixed(2)} seconds\n`;
+        }
+
+        report += `\n--- QUIZ PERFORMANCE ---\n`;
+        sessionData.quizResults.forEach((q, idx) => {
+            report += `${idx + 1}. [${q.correct ? 'PASS' : 'FAIL'}] Q: ${q.question.substring(0, 40)}... | Ans: ${q.selected}\n`;
+        });
+
+        report += `\n--- TASK LOG ---\n`;
+        sessionData.taskEvents.forEach(e => {
+            report += `[${e.timestamp.split('T')[1].split('.')[0]}] ${e.action}\n`;
+        });
+
+        // 1. Try to trigger download
+        try {
+            const blob = new Blob([report], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${sessionData.playerId.replace(/[^a-z0-9]/gi, '_')}_report.txt`; // Sanitize filename
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error("Download failed:", e);
+        }
+
+        // 2. Always show fallback text area immediately
+        const fallbackContainer = document.getElementById('report-fallback-container');
+        if (fallbackContainer) {
+            fallbackContainer.innerHTML = `
+                <p class="text-xs text-green-700 mb-1 text-left font-bold">REPORT GENERATED BELOW:</p>
+                <p class="text-xs text-gray-500 mb-2 text-left">If the file didn't download, copy this text:</p>
+                <textarea class="w-full h-48 p-2 text-xs border rounded bg-gray-50 font-mono shadow-inner text-gray-700" readonly onclick="this.select()">${report}</textarea>
+            `;
+            fallbackContainer.classList.remove('hidden');
+        }
+    }
+
+    // --- GAME START & TRANSITIONS ---
+    function handleStartClick() {
+        const idInput = document.getElementById('player-id-input');
+        if (!idInput.value.trim()) {
+            alert("Please enter a Player ID to track your engineering progress.");
+            return;
+        }
+        sessionData.playerId = idInput.value.trim();
+        sessionData.startTime = Date.now();
+        startIntroSequence();
+    }
+
+    function setupLevel(levelNumber) {
+        gameState.level = levelNumber;
+        const objectives = levelConfig[levelNumber].objectives.map(o => ({...o, completed: false }));
+        gameState.objectives = JSON.parse(JSON.stringify(objectives));
+        updateJournal();
+    }
+
+    function startIntroSequence() {
+        startScreen.classList.add('ui-hidden');
+        introSequence.classList.remove('ui-hidden');
+        setTimeout(() => {
+            introSequence.classList.add('ui-hidden');
+            startGame();
+        }, 4000);
+    }
+
+    function startGame() {
+        gameActive = true;
+        gameScreen.classList.remove('ui-hidden');
+        uiOverlay.classList.remove('ui-hidden');
+        setupLevel(1);
+        currentLevelStart = Date.now(); // Start timer for L1
+        platforms.forEach(p => { if(p.moving) { p.originalX = p.x; p.dx = p.dx || 1; } });
+        requestAnimationFrame(gameLoop);
+    }
+
+    function startLevel2() {
+        logTime(1); // End L1 Time
+        l1EndScreen.classList.add('ui-hidden');
+        filterBuilderUi.classList.remove('ui-hidden');
+        uiOverlay.classList.remove('ui-hidden');
+        setupLevel(2);
+        l2Gravel.classList.remove('ui-hidden');
+        l2Sand.classList.remove('ui-hidden');
+        l2Charcoal.classList.remove('ui-hidden');
+        l2Clay.classList.remove('ui-hidden');
+        l2Silt.classList.remove('ui-hidden');
+        l2Leaves.classList.remove('ui-hidden');
+        resetFilter();
+        currentLevelStart = Date.now(); // Start timer for L2
+    }
+
+    function startLevel3() { 
+        logTime(2); // End L2 Time (Gatekeeper is part of L2 transition usually, or its own "overhead")
+        // Note: Time spent in gatekeeper is currently attributed to L2 effectively due to when startLevel3 is called
+        gatekeeperQuizUi.classList.add('ui-hidden');
+        purificationUi.classList.remove('ui-hidden');
+        uiOverlay.classList.remove('ui-hidden');
+        purificationCalculator.classList.add('ui-hidden');
+        purificationChoice.classList.remove('ui-hidden');
+        setupLevel(3);
+        currentLevelStart = Date.now(); // Start timer for L3
+    }
+
+    function startLevel4() {
+        logTime(3); // End L3 Time
+        l3EndScreen.classList.add('ui-hidden');
+        distributionUi.classList.remove('ui-hidden');
+        uiOverlay.classList.remove('ui-hidden');
+        setupLevel(4);
+        // Reverted inventory on level start
+        gameState.pipeInventory = { straight: 8, elbow: 12 };
+        setupPipeGrid();
+        currentLevelStart = Date.now(); // Start timer for L4
+    }
+
+    // --- GAME LOOP & PHYSICS (UNCHANGED LOGIC) ---
+    // ... (All draw/update functions remain same as previous version) ...
+    function drawPlayer() { ctx.fillStyle = player.color; ctx.fillRect(player.x, player.y, player.width, player.height); }
+    function drawPlatforms() { platforms.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.width, p.height); }); }
+    function drawNPCs() { npcs.forEach(npc => { ctx.fillStyle = npc.color; ctx.fillRect(npc.x, npc.y, npc.width, npc.height); if (checkCollision(player, npc)) { ctx.fillStyle = 'black'; ctx.font = '16px Poppins'; ctx.textAlign = 'center'; ctx.fillText('Talk [E]', npc.x + npc.width / 2, npc.y - 10); } }); }
+    
+    function drawScenery() {
+        ctx.fillStyle = '#4B5563';
+        ctx.fillRect(480, world.height - 80, 80, 40);
+        ctx.strokeStyle = 'black';
+        ctx.strokeRect(480, world.height - 80, 80, 40);
+        ctx.beginPath();
+        ctx.arc(520, world.height - 80, 20, 0, Math.PI, true);
+        ctx.fillStyle = '#A0AEC0';
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        clouds.forEach(c => {
+            const x = c.x; const y = c.y; const s = c.scale;
+            ctx.beginPath();
+            ctx.arc(x, y, 30*s, Math.PI * 0.5, Math.PI * 1.5);
+            ctx.arc(x + 50*s, y - 20*s, 40*s, Math.PI * 1, Math.PI * 2);
+            ctx.arc(x + 100*s, y, 30*s, Math.PI * 1.5, Math.PI * 0.5);
+            ctx.closePath();
+            ctx.fill();
+        });
+        const hg = platforms[7];
+        ctx.fillStyle = '#E53E3E';
+        ctx.font = '30px Poppins';
+        ctx.textAlign = 'center';
+        ctx.fillText('🚩', hg.x + hg.width / 2, hg.y - 10);
+    }
+
+    function updateClouds() {
+        clouds.forEach(c => { c.x -= c.speed; if(c.x < -150) c.x = world.width + 100; });
+    }
+
+    function updatePlayer() {
+        let onMovingPlatform = null; let movingPlatformDX = 0;
+        if (keys.left) player.dx = -player.speed; else if (keys.right) player.dx = player.speed; else player.dx = 0;
+        if (keys.up && !player.isJumping && player.grounded) { player.dy = -player.jumpPower; player.isJumping = true; player.grounded = false; }
+        player.dy += gravity;
+        const originalX = player.x; const originalY = player.y;
+        player.grounded = false; player.y += player.dy;
+        platforms.forEach((p, index) => {
+             if (checkCollision(player, p)) {
+                if (player.dy > 0 && originalY + player.height <= p.y + 1) {
+                    player.y = p.y - player.height; player.dy = 0; player.isJumping = false; player.grounded = true;
+                    if(p.moving) { onMovingPlatform = p; movingPlatformDX = p.dx * p.speed; }
+                    if (index === 7) completeObjective('find_high_ground');
+                } else if (player.dy < 0 && originalY >= p.y + p.height -1) { player.y = p.y + p.height; player.dy = 0; }
+             }
+        });
+        player.x += movingPlatformDX; player.x += player.dx;
+        platforms.forEach(p => {
+             if (p === onMovingPlatform && player.dx !== 0) return;
+             if (checkCollision(player, p)) {
+                if(player.dx > 0) player.x = p.x - player.width; else if (player.dx < 0) player.x = p.x + p.width;
+                player.dx = 0;
+             }
+        });
+        if (player.x < 0) player.x = 0; if (player.x + player.width > world.width) player.x = world.width - player.width;
+        if (player.y + player.height > platforms[0].y) { player.y = platforms[0].y - player.height; player.dy = 0; player.isJumping = false; player.grounded = true; }
+    }
+
+    function updateNPCs() {
+        npcs.forEach(npc => {
+            if(!gameState.playerInDialogue || currentNpc !== npc) {
+                npc.x += npc.dx;
+                if (npc.x < npc.patrolMinX || npc.x + npc.width > npc.patrolMaxX) npc.dx *= -1;
+            }
+        });
+    }
+
+     function updateMovingPlatforms(){
+        platforms.forEach(p => {
+            if(p.moving){
+                p.x += p.dx * p.speed;
+                if (p.x < p.originalX || p.x > p.originalX + p.range) { p.dx *= -1; p.x = Math.max(p.originalX, Math.min(p.x, p.originalX + p.range)); }
+            }
+        });
+     }
+
+    function updateCamera() { const targetX = player.x + player.width / 2 - camera.width / 2; camera.x = Math.max(0, Math.min(targetX, world.width - camera.width)); }
+    function gameLoop() {
+        if (!gameActive || gameState.level !== 1) return;
+        updateMovingPlatforms(); updateClouds(); updatePlayer(); updateNPCs(); updateCamera();
+        ctx.clearRect(0, 0, world.width, world.height); ctx.save(); ctx.translate(-camera.x, -camera.y);
+        drawPlatforms(); drawScenery(); drawNPCs(); drawPlayer();
+        ctx.restore(); requestAnimationFrame(gameLoop);
+    }
+    function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; }
+    function checkCollision(r1, r2) { return r1.x < r2.x + r2.width && r1.x + r1.width > r2.x && r1.y < r2.y + r2.height && r1.y + r1.height > r2.y; }
+    function checkInteractions() {
+        if (gameState.playerInDialogue || gameState.level !== 1) return;
+        npcs.forEach(npc => {
+             const interactionZone = { x: npc.x - 10, y: npc.y - 10, width: npc.width + 20, height: npc.height + 20 };
+            if (checkCollision(player, interactionZone)) startDialogue(npc);
+        });
+    }
+    function handleKeyDown(e) {
+        if (e.target.tagName === 'INPUT') { if (e.target.id === 'chlorine-input' && e.code === 'Enter') { e.preventDefault(); treatWaterButton.click(); } return; }
+        if (gameState.playerInDialogue && e.code === 'Enter' && dialogueOptionsContainer.children.length === 0) { e.preventDefault(); dialogueContinue.click(); return; }
+        if (gameState.level === 1) {
+            if (e.code === 'KeyE') checkInteractions();
+            if (gameState.playerInDialogue) return;
+            switch (e.code) { case 'ArrowLeft': case 'KeyA': keys.left = true; break; case 'ArrowRight': case 'KeyD': keys.right = true; break; case 'ArrowUp': case 'KeyW': case 'Space': keys.up = true; break; }
+        }
+    }
+    function handleKeyUp(e) { if (e.target.tagName === 'INPUT') return; if (gameState.level === 1) { switch (e.code) { case 'ArrowLeft': case 'KeyA': keys.left = false; break; case 'ArrowRight': case 'KeyD': keys.right = false; break; case 'ArrowUp': case 'KeyW': case 'Space': keys.up = false; break; } } }
+
+    function startDialogue(npc) {
+        currentNpc = npc; currentNpcDialogueIndex = 0; gameState.playerInDialogue = true;
+        dialogueBox.classList.remove('ui-hidden'); dialogueNpcName.textContent = npc.name;
+        dialogueOptionsContainer.innerHTML = ''; dialogueFeedbackEl.innerHTML = '';
+        dialogueContinue.onclick = showNextDialogueLine;
+        if (npc.id === 'elder') completeObjective('talk_elder');
+        if (npc.id === 'mother') completeObjective('talk_mother');
+        if (npc.id === 'farmer') completeObjective('talk_farmer');
+        logTaskEvent(`Started dialogue with ${npc.name}`);
+        showNextDialogueLine();
+    }
+
+    function showNextDialogueLine() {
+        if (!currentNpc || currentNpcDialogueIndex >= currentNpc.dialogue.length) { endDialogue(currentNpc); return; }
+        const line = currentNpc.dialogue[currentNpcDialogueIndex];
+        dialogueOptionsContainer.innerHTML = ''; dialogueFeedbackEl.innerHTML = '';
+        dialogueContinue.classList.remove('ui-hidden');
+        if (typeof line === 'string') {
+            dialogueText.textContent = line; currentNpcDialogueIndex++;
+        } else if (typeof line === 'object' && line.quizContext) {
+            const quizContext = line.quizContext; const npcQuiz = quizData.find(q => q.context === quizContext);
+            if (npcQuiz && !npcQuizAnswered[quizContext]) {
+                 dialogueText.innerHTML = ''; 
+                 const quizOverlay = document.createElement('div'); quizOverlay.className = 'npc-quiz-overlay';
+                 const quizHeader = document.createElement('div'); quizHeader.className = 'text-blue-400 font-bold mb-2 uppercase text-xs tracking-wider border-b border-blue-800 pb-1 flex justify-between'; quizHeader.innerHTML = '<span>VERIFICATION REQUIRED</span> <span class="animate-pulse">● REC</span>'; quizOverlay.appendChild(quizHeader);
+                 const quizQuestion = document.createElement('div'); quizQuestion.className = 'text-lg font-semibold mb-4 text-white leading-snug'; quizQuestion.textContent = npcQuiz.question; quizOverlay.appendChild(quizQuestion);
+                 const optionsContainer = document.createElement('div'); optionsContainer.className = 'space-y-2';
+                 const shuffledOptions = shuffleArray([...npcQuiz.options]);
+                 shuffledOptions.forEach(option => {
+                    const button = document.createElement('button'); button.textContent = option; button.className = 'npc-quiz-option';
+                    button.onclick = () => checkNpcAnswer(button, option, npcQuiz.correct, npcQuiz.explanation, quizContext);
+                    optionsContainer.appendChild(button);
+                 });
+                 quizOverlay.appendChild(optionsContainer);
+                 dialogueOptionsContainer.appendChild(quizOverlay);
+                 dialogueContinue.classList.add('ui-hidden'); currentNpcDialogueIndex++;
+            } else { currentNpcDialogueIndex++; showNextDialogueLine(); }
+        }
+    }
+
+    function checkNpcAnswer(buttonEl, selectedOption, correctAnswer, explanation, quizContext) {
+        logQuizResult(quizData.find(q => q.context === quizContext).question, selectedOption, correctAnswer);
+        const options = dialogueOptionsContainer.querySelectorAll('.npc-quiz-option');
+        options.forEach(opt => { opt.disabled = true; if (opt.textContent === correctAnswer) opt.classList.add('correct'); else opt.classList.add('opacity-50'); });
+        if (selectedOption === correctAnswer) { buttonEl.classList.add('correct'); dialogueFeedbackEl.innerHTML = `<span class="dialogue-feedback correct">Protocol Verified.</span>`; } 
+        else { buttonEl.classList.add('incorrect'); dialogueFeedbackEl.innerHTML = `<span class="dialogue-feedback incorrect">Error.</span> Correct protocol: "${correctAnswer}".`; }
+        npcQuizAnswered[quizContext] = true; setTimeout(() => { dialogueContinue.classList.remove('ui-hidden'); }, 1500);
+    }
+
+    function endDialogue(npc) {
+        gameState.playerInDialogue = false; dialogueBox.classList.add('ui-hidden'); dialogueContinue.onclick = null; currentNpc = null; dialogueText.textContent = '';
+        if (npc && npc.clue && !gameState.clues.includes(npc.clue)) {
+            gameState.clues.push(npc.clue);
+            if (cluesList.children.length === 1 && cluesList.children[0].textContent.startsWith("Talk to")) cluesList.innerHTML = '';
+            const newClue = document.createElement('li'); newClue.textContent = npc.clue; cluesList.appendChild(newClue);
+        }
+        checkGeminiButtonStatus();
+    }
+    function toggleJournal() { gameState.journalOpen = !gameState.journalOpen; journalUi.classList.toggle('ui-hidden'); if(gameState.journalOpen) updateJournal(); }
+    function updateJournal() { objectivesList.innerHTML = ''; gameState.objectives.forEach(obj => { const li = document.createElement('li'); li.textContent = obj.text; li.id = `obj-${obj.id}`; li.classList.add('objective-item'); if (obj.completed) li.classList.add('completed'); objectivesList.appendChild(li); }); }
+
+    function completeObjective(id) {
+        const objective = gameState.objectives.find(o => o.id === id);
+        if (objective && !objective.completed) {
+            objective.completed = true;
+            updateJournal();
+            checkLevelComplete();
+        }
+    }
+
+    function checkLevelComplete() {
+        const allComplete = gameState.objectives.every(o => o.completed);
+        if (!allComplete) return;
+        if (gameState.level === 1) {
+            gameActive = false;
+            setTimeout(() => { gameScreen.classList.add('ui-hidden'); uiOverlay.classList.add('ui-hidden'); startChallengeQuiz(); }, 500); 
+        } else if (gameState.level === 2) {
+            setTimeout(() => { filterBuilderUi.classList.add('ui-hidden'); l2EndScreen.classList.remove('ui-hidden'); }, 1500);
+        } else if (gameState.level === 3) {
+            setTimeout(() => { purificationUi.classList.add('ui-hidden'); l3EndScreen.classList.remove('ui-hidden'); }, 1500);
+        } else if (gameState.level === 4) {
+            setTimeout(() => {
+                distributionUi.classList.add('ui-hidden');
+                const finalEnd = document.createElement('div');
+                // Added max-height and overflow-y-auto to handle the fallback text area on smaller screens
+                finalEnd.className = 'absolute z-10 p-8 rounded-lg shadow-2xl text-center max-w-lg bg-white border border-gray-200 max-h-[90vh] overflow-y-auto';
+                finalEnd.innerHTML = `<h1 class="text-4xl font-bold text-green-700 mb-4">Mission Complete!</h1><p class="text-gray-700 mb-6">Congratulations! You have successfully restored clean water to the village.</p>`;
+                
+                const reportBtn = document.createElement('button');
+                reportBtn.className = "btn bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg w-full mb-4";
+                reportBtn.textContent = "Download Mission Report";
+                reportBtn.onclick = downloadReport;
+                finalEnd.appendChild(reportBtn);
+
+                // Fallback container for report text
+                const fallbackDiv = document.createElement('div');
+                fallbackDiv.id = 'report-fallback-container';
+                fallbackDiv.className = 'hidden mt-4 border-t pt-4';
+                finalEnd.appendChild(fallbackDiv);
+
+                gameContainer.appendChild(finalEnd);
+            }, 1500);
+        }
+    }
+    function checkGeminiButtonStatus() { const talkedToAll = gameState.objectives.find(o=>o.id==='talk_elder')?.completed && gameState.objectives.find(o=>o.id==='talk_mother')?.completed && gameState.objectives.find(o=>o.id==='talk_farmer')?.completed; if(talkedToAll && !gameState.geminiAnalysisComplete){geminiButton.disabled=false;geminiPlaceholder.textContent="Your notes are ready for analysis."}}
+    
+    // --- L2 LOGIC ---
+    let draggedItem = null;
+    function handleDragStart(e) { if (e.target.classList.contains('resource-item')) draggedItem = e.target; }
+    function handleDragOver(e) { e.preventDefault(); if (e.target.classList.contains('drop-zone')) e.target.classList.add('over'); }
+    function handleDragLeave(e) { if (e.target.classList.contains('drop-zone')) e.target.classList.remove('over'); }
+    function handleDrop(e) {
+        e.preventDefault();
+        if (e.target.classList.contains('drop-zone') && draggedItem && gameState.filterLayers.length < 3) {
+            const resource = draggedItem.dataset.resource; gameState.filterLayers.push(resource); draggedItem.style.display = 'none';
+            renderFilterLayers(); if (gameState.filterLayers.length === 3) testFilterButton.disabled = false;
+        }
+        if (e.target.classList.contains('drop-zone')) e.target.classList.remove('over'); draggedItem = null;
+    }
+    function renderFilterLayers() {
+        filterContainer.innerHTML = ''; const layerHeightPercentage = 22;
+        gameState.filterLayers.forEach((layer, index) => {
+            const layerDiv = document.createElement('div'); layerDiv.className = 'filter-layer';
+            if (!['Gravel', 'Sand', 'Charcoal'].includes(layer)) layerDiv.textContent = ''; else layerDiv.textContent = layer;
+            layerDiv.style.height = `${layerHeightPercentage}%`; layerDiv.style.bottom = `${index * layerHeightPercentage}%`;
+            if (layer === 'Gravel') layerDiv.style.backgroundColor = '#9ca3af'; else if (layer === 'Sand') layerDiv.style.backgroundColor = '#facc15'; else if (layer === 'Charcoal') layerDiv.style.backgroundColor = '#1f2937'; else if (layer === 'Clay') layerDiv.style.backgroundColor = '#f97316'; else if (layer === 'Silt') layerDiv.style.backgroundColor = '#78350f'; else if (layer === 'Leaves') layerDiv.style.backgroundColor = '#15803d';
+            filterContainer.appendChild(layerDiv);
+        });
+    }
+    function testFilter() {
+        testFilterButton.disabled = true; resetFilterButton.disabled = true; mentorHintBox.classList.add('ui-hidden');
+        const usedDistractor = gameState.filterLayers.some(layer => ['Clay', 'Silt', 'Leaves'].includes(layer));
+        const isCorrect = gameState.filterLayers.length === 3 && gameState.filterLayers[0] === 'Charcoal' && gameState.filterLayers[1] === 'Sand' && gameState.filterLayers[2] === 'Gravel' && !usedDistractor;
+        logTaskEvent(`Tested Filter: Layers [${gameState.filterLayers.join(', ')}] - Result: ${isCorrect ? 'Success' : 'Failure'}`);
+        waterAnimation.style.height = '100%';
+        if (isCorrect) {
+            waterAnimation.classList.add('clean'); feedbackBox.innerHTML = `<p class="font-bold text-green-600">SUCCESS!</p><p>The water is running clear.</p>`; completeObjective('build_filter'); completeObjective('test_filter');
+        } else {
+            waterAnimation.classList.remove('clean');
+            let failureReason = "Check your layer order or materials used.";
+            if (usedDistractor) {
+                 if (gameState.filterLayers.includes('Clay')) failureReason = "Clay clogs the filter!"; else if (gameState.filterLayers.includes('Silt')) failureReason = "Silt is too fine."; else if (gameState.filterLayers.includes('Leaves')) failureReason = "Leaves decompose.";
+            } else if (gameState.filterLayers.length !== 3) failureReason = "You must use exactly three filter layers.";
+            else failureReason = "Think about the order: finest particles first (bottom) to largest (top)."
+            feedbackBox.innerHTML = `<p class="font-bold text-red-600">FAILURE</p><p>The water is still muddy. ${failureReason}</p>`;
+            setTimeout(() => { resetFilterButton.disabled = false; }, 2000);
+        }
+    }
+    function resetFilter() {
+        gameState.filterLayers = []; filterContainer.innerHTML = '';
+        l2Gravel.style.display = 'block'; l2Sand.style.display = 'block'; l2Charcoal.style.display = 'block'; l2Clay.style.display = 'block'; l2Silt.style.display = 'block'; l2Leaves.style.display = 'block';
+        testFilterButton.disabled = true; mentorHintBox.classList.add('ui-hidden'); feedbackBox.innerHTML = '<p>Build your filter and run a test.</p>'; waterAnimation.style.height = '0%'; waterAnimation.classList.remove('clean');
+    }
+
+    // --- L3 LOGIC ---
+    let boilClicks = 0; const requiredBoilClicks = 5; let boilTimerInterval = null; let boilTimeLeft = 10;
+    function selectPurificationMethod(method) {
+        gameState.purificationMethod = method; const volume = Math.floor(Math.random() * (1200 - 800 + 1) + 800); displayTankVolumeEl.textContent = volume;
+        purificationFeedback.innerHTML = ''; purificationMentorHintBox.classList.add('ui-hidden'); boilMinigameEl.classList.add('ui-hidden'); purificationResultsArea.classList.remove('ui-hidden');
+        completeObjective('select_method'); purificationChoice.classList.add('ui-hidden'); purificationCalculator.classList.remove('ui-hidden');
+        logTaskEvent(`Selected Purification Method: ${method}`);
+
+        if (method === 'Chlorine' || method === 'Bleach') {
+            purificationResultsTitle.textContent = "Water Quality Test"; instructionText.textContent = "Calculate the correct dosage.";
+            chemicalInputPanel.classList.remove('ui-hidden'); purificationGrid.classList.remove('flex', 'justify-center'); purificationGrid.classList.add('grid', 'grid-cols-2');
+            let rate; if (method === 'Chlorine') { rate = 2; selectedChemicalText.textContent = "Chlorine Drops"; selectedChemicalText.className = "text-blue-700"; } else { rate = 2; selectedChemicalText.textContent = "Household Bleach"; selectedChemicalText.className = "text-yellow-700"; }
+            tankVolumeEl.textContent = volume; dosageRateEl.textContent = rate; chlorineInput.value = '';
+            purificationFeedback.innerHTML = `<div class="feedback-icon text-gray-400">💧</div><p>Enter dosage and click "Treat Water".</p>`;
+        } else if (method === 'Boil') {
+            purificationResultsTitle.textContent = "Thermal Disinfection"; instructionText.textContent = "Set the boiling duration.";
+            chemicalInputPanel.classList.add('ui-hidden'); purificationGrid.classList.remove('grid', 'grid-cols-2'); purificationGrid.classList.add('flex', 'justify-center');
+            selectedChemicalText.textContent = "Boil Water"; selectedChemicalText.className = "text-red-700";
+            boilSlider.value = 0; boilTimeDisplay.textContent = "0"; gameState.selectedElevation = null;
+            document.getElementById('elev-low').classList.remove('selected'); document.getElementById('elev-high').classList.remove('selected');
+            boilTimeContainer.classList.add('opacity-50', 'pointer-events-none'); boilMinigameEl.classList.remove('ui-hidden');
+            purificationFeedback.innerHTML = `<div class="text-6xl mb-4 animate-pulse">🔥</div><p class="text-gray-500">Ready to ignite burners.</p>`; 
+        }
+    }
+    function selectElevation(type) {
+        gameState.selectedElevation = type; document.getElementById('elev-low').classList.remove('selected'); document.getElementById('elev-high').classList.remove('selected');
+        document.getElementById(`elev-${type}`).classList.add('selected'); boilTimeContainer.classList.remove('opacity-50', 'pointer-events-none');
+    }
+    function handleBoilSubmit() {
+        const time = parseInt(boilSlider.value); let minTime = 1; if (gameState.selectedElevation === 'high') minTime = 3;
+        logTaskEvent(`Boil Attempt: Elevation ${gameState.selectedElevation}, Time ${time} min`);
+        if (time === 0) purificationFeedback.innerHTML = `<div class="feedback-icon text-red-500">❌</div><p class="font-bold text-red-600">FAILED!</p><p>Water was not boiled at all.</p>`;
+        else if (time < minTime) purificationFeedback.innerHTML = `<div class="feedback-icon text-red-500">❌</div><p class="font-bold text-red-600">UNSAFE!</p><p>Time insufficient for selected elevation zone.</p>`;
+        else {
+            let msg = "Water is safe to drink."; let icon = "✅"; let titleClass = "text-green-600";
+            if (time > 5) { msg += " (Note: Excess fuel used, but water is safe.)"; icon = "⚠️"; titleClass = "text-yellow-600"; }
+            purificationFeedback.innerHTML = `<div class="feedback-icon text-green-500">${icon}</div><p class="font-bold ${titleClass}">SUCCESS!</p><p>${msg}</p>`;
+            startBoilButton.disabled = true; startBoilButton.classList.add('opacity-50', 'cursor-not-allowed');
+            completeObjective('purify_water');
+        }
+    }
+    function treatWater() { 
+        const volume = parseInt(tankVolumeEl.textContent); const rate = parseInt(dosageRateEl.textContent); const correctDosage = volume * rate; const playerDosage = parseInt(chlorineInput.value); 
+        logTaskEvent(`Chemical Treat Attempt: Method ${gameState.purificationMethod}, Input ${playerDosage}, Correct ${correctDosage}`);
+        if (isNaN(playerDosage)) { purificationFeedback.innerHTML = `<div class="feedback-icon text-gray-400">❓</div><p>Please enter a number.</p>`; return; }
+        if (playerDosage === correctDosage) {
+            purificationFeedback.innerHTML = `<div class="feedback-icon text-green-500">✅</div><p class="font-bold text-green-600">SUCCESS!</p><p>The water is now safe to drink.</p>`;
+            completeObjective('purify_water');
+        } else if (playerDosage > correctDosage) {
+            purificationFeedback.innerHTML = `<div class="feedback-icon text-yellow-500">⚠️</div><p class="font-bold text-yellow-600">OVER-CHLORINATED</p><p>The dosage is too high.</p>`; showPurificationHint();
+        } else {
+            purificationFeedback.innerHTML = `<div class="feedback-icon text-red-500">❌</div><p class="font-bold text-red-600">CONTAMINATED</p><p>The dosage is too low.</p>`; showPurificationHint();
+        } 
+    }
+    function showPurificationHint() { if (gameState.mentorAnalysis) { const hint = gameState.mentorAnalysis.keyIssues.find(i => i.issue.includes("Sickness"))?.nextStep || "Accurate chemical dosage is critical."; purificationMentorHintText.textContent = hint; purificationMentorHintBox.classList.remove('ui-hidden'); } else purificationMentorHintBox.classList.add('ui-hidden'); }
+
+    // --- L4 LOGIC ---
+    let draggedPipe = null; let currentPipeInventory = {}; 
+    function setupPipePalette() {
+        pipePalette.innerHTML = ''; currentPipeInventory = { ...gameState.pipeInventory };
+        Object.keys(pipeTypes).forEach(type => {
+            const initialCount = gameState.pipeInventory[type];
+            const pipeDiv = document.createElement('div'); pipeDiv.className = 'w-16 h-16 mx-auto relative group flex items-center';
+            const pipePieceWrapper = document.createElement('div'); pipePieceWrapper.className = 'w-full h-full';
+            const pipePiece = document.createElement('div'); pipePiece.className = `pipe-piece w-full h-full ${initialCount === 0 ? 'disabled' : ''}`; pipePiece.draggable = initialCount > 0; pipePiece.dataset.type = type; pipePiece.dataset.rotation = "0"; pipePiece.style.backgroundImage = `url('${getPipeImageUrl(type, 0)}')`;
+            pipePieceWrapper.appendChild(pipePiece);
+            const countDisplay = document.createElement('span'); countDisplay.id = `pipe-count-${type}`; countDisplay.className = 'ml-2 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full'; countDisplay.textContent = initialCount;
+            pipeDiv.appendChild(pipePieceWrapper); pipeDiv.appendChild(countDisplay);
+            pipePieceWrapper.addEventListener('click', (e) => { const piece = e.currentTarget.querySelector('.pipe-piece'); if (piece.classList.contains('disabled')) return; let rotation = (parseInt(piece.dataset.rotation) + 1) % pipeTypes[type].rotations; piece.dataset.rotation = rotation; piece.style.backgroundImage = `url('${getPipeImageUrl(type, rotation)}')`; });
+            pipePalette.appendChild(pipeDiv);
+        });
+        pipePalette.addEventListener('dragstart', (e) => { if (e.target.classList.contains('pipe-piece') && !e.target.classList.contains('disabled')) draggedPipe = e.target; });
+    }
+    function setupPipeGrid() {
+        pipeGrid.innerHTML = ''; gameState.pipeGridState = Array(gridConfig.rows).fill(null).map(() => Array(gridConfig.cols).fill(null)); valvesToOpen = []; valvesOpened = 0;
+        for (let r = 0; r < gridConfig.rows; r++) {
+            for (let c = 0; c < gridConfig.cols; c++) {
+                const cell = document.createElement('div'); cell.className = 'grid-cell'; cell.dataset.r = r; cell.dataset.c = c;
+                const isObstacle = gridConfig.obstacles.some(obs => obs.r === r && obs.c === c); const isValve = gridConfig.valves.some(v => v.r === r && v.c === c);
+                if (isObstacle) { cell.classList.add('obstacle-node'); cell.innerHTML = '🧱'; gameState.pipeGridState[r][c] = { type: 'obstacle' }; } else if (r === gridConfig.start.r && c === gridConfig.start.c) cell.classList.add('start-node'); else if (r === gridConfig.end.r && c === gridConfig.end.c) cell.classList.add('end-node'); else if (isValve) cell.innerHTML = '<span class="valve-marker">⚙️</span>';
+                pipeGrid.appendChild(cell);
+            }
+        }
+        pipeFeedbackBox.innerHTML = `<p>Drag pipes from the palette to the grid.</p>`; pipeMentorHintBox.classList.add('ui-hidden'); testSystemButton.disabled = false; setupPipePalette();
+    }
+    pipeGrid.addEventListener('dragover', (e) => e.preventDefault());
+    pipeGrid.addEventListener('drop', (e) => {
+        e.preventDefault(); const cell = e.target.closest('.grid-cell');
+        if (cell && draggedPipe) {
+            const r = parseInt(cell.dataset.r); const c = parseInt(cell.dataset.c); const pipeType = draggedPipe.dataset.type;
+            if (!gameState.pipeGridState[r][c] && currentPipeInventory[pipeType] > 0) {
+                const valveMarker = cell.querySelector('.valve-marker'); if (!valveMarker) cell.innerHTML = ''; else { const existingPipe = cell.querySelector('.pipe-piece'); if(existingPipe) existingPipe.remove(); }
+                const newPipe = draggedPipe.cloneNode(true); newPipe.style.cursor = 'default';
+                if (valveMarker) cell.insertBefore(newPipe, valveMarker); else cell.appendChild(newPipe);
+                gameState.pipeGridState[r][c] = { type: newPipe.dataset.type, rotation: parseInt(newPipe.dataset.rotation) };
+                currentPipeInventory[pipeType]--; const countDisplay = document.getElementById(`pipe-count-${pipeType}`); countDisplay.textContent = currentPipeInventory[pipeType];
+                if (currentPipeInventory[pipeType] === 0) { const palettePieceContainer = pipePalette.querySelector(`div[data-type='${pipeType}']`)?.closest('.group'); const pieceInside = palettePieceContainer?.querySelector('.pipe-piece'); if(pieceInside){ pieceInside.classList.add('disabled'); pieceInside.draggable = false; } }
+            }
+        } draggedPipe = null;
+    });
+    function getPipeImageUrl(type, rotation) {
+        const bgColor = '#d8e2c0'; const pipeColor = '#4C566A'; let svg = '';
+        if (type === 'straight') { if (rotation % 2 === 0) svg = `<svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="50" height="50" fill="${bgColor}"/><rect x="18" y="0" width="14" height="50" fill="${pipeColor}"/></svg>`; else svg = `<svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="50" height="50" fill="${bgColor}"/><rect x="0" y="18" width="50" height="14" fill="${pipeColor}"/></svg>`; } 
+        else if (type === 'elbow') { const paths = [ `<path d="M18 50 V18 H50 V32 H32 V50 H18 Z" fill="${pipeColor}"/>`, `<path d="M18 0 V32 H50 V18 H32 V0 H18 Z" fill="${pipeColor}"/>`, `<path d="M32 0 V32 H0 V18 H18 V0 H32 Z" fill="${pipeColor}"/>`, `<path d="M32 50 V18 H0 V32 H18 V50 H32 Z" fill="${pipeColor}"/>` ]; svg = `<svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="50" height="50" fill="${bgColor}"/>${paths[rotation]}</svg>`; }
+        return `data:image/svg+xml;base64,${btoa(svg)}`;
+    }
+    function testPipeSystem() {
+        pipeGrid.querySelectorAll('.water-flow').forEach(cell => cell.classList.remove('water-flow'));
+        pipeGrid.querySelectorAll('.valve-active, .valve-opened').forEach(cell => cell.classList.remove('valve-active', 'valve-opened'));
+        valvesToOpen = []; valvesOpened = 0; testSystemButton.disabled = true;
+        const path = findPipePath();
+        if (path) {
+            pipeFeedbackBox.innerHTML = `<p class="font-bold text-yellow-600">Pipeline Connected!</p><p>Now click the highlighted valves (⚙️) on the grid to open them.</p>`;
+            animateWaterFlow(path); valvesToOpen = [];
+            path.forEach(pos => {
+                const isValveLocation = gridConfig.valves.some(v => v.r === pos.r && v.c === pos.c);
+                if (isValveLocation) { const cell = pipeGrid.querySelector(`[data-r='${pos.r}'][data-c='${pos.c}']`); if (cell) { cell.classList.add('valve-active'); if(!cell.classList.contains('valve-opened')) valvesToOpen.push(cell); } }
+            });
+             let allGridValvesOnPath = gridConfig.valves.every(v => path.some(p => p.r === v.r && p.c === v.c));
+            if (valvesToOpen.length === 0 && allGridValvesOnPath) {
+                 pipeFeedbackBox.innerHTML = `<p class="font-bold text-green-600">All Valves Opened!</p><p>Water is successfully distributed!</p>`;
+                 completeObjective('design_pipes'); completeObjective('open_valves'); completeObjective('test_pipes');
+                 logTaskEvent('Pipe System Test: Success');
+            } else if (!allGridValvesOnPath) {
+                 pipeFeedbackBox.innerHTML = `<p class="font-bold text-red-600">Pipeline Connected, but Missed Valves!</p><p>Your path doesn't go through all required valve locations (⚙️).</p>`;
+                 testSystemButton.disabled = false; pipeGrid.querySelectorAll('.valve-active').forEach(cell => cell.classList.remove('valve-active'));
+                 logTaskEvent('Pipe System Test: Failed (Missed Valves)');
+            } else completeObjective('design_pipes');
+        } else {
+            pipeFeedbackBox.innerHTML = `<p class="font-bold text-red-600">FAILURE!</p><p>There's a leak or blockage in the system.</p>`;
+            if (gameState.mentorAnalysis) { const hint = gameState.mentorAnalysis.keyIssues.find(i => i.issue.includes("long-term"))?.nextStep || "Ensure every piece connects logically."; pipeMentorHintText.textContent = hint; pipeMentorHintBox.classList.remove('ui-hidden'); }
+            testSystemButton.disabled = false;
+            logTaskEvent('Pipe System Test: Failed (Broken Path)');
+        }
+    }
+    function handleValveClick(e) {
+         const marker = e.target.closest('.valve-marker'); const cell = e.target.closest('.grid-cell');
+         if (marker && cell && cell.classList.contains('valve-active')) {
+             cell.classList.remove('valve-active'); cell.classList.add('valve-opened'); valvesOpened++;
+             const r = cell.dataset.r; const c = cell.dataset.c;
+             valvesToOpen = valvesToOpen.filter(vCell => !(vCell.dataset.r === r && vCell.dataset.c === c));
+             const remaining = valvesToOpen.length;
+             if (remaining > 0) pipeFeedbackBox.innerHTML = `<p class="font-bold text-yellow-600">Valve Opened!</p><p>${remaining} more valve(s) to open.</p>`;
+             else { pipeFeedbackBox.innerHTML = `<p class="font-bold text-green-600">All Valves Opened!</p><p>Water is successfully distributed!</p>`; completeObjective('open_valves'); completeObjective('test_pipes'); }
+         }
+     }
+    function getOppositeDir(dir) { if (dir === 'left') return 'right'; if (dir === 'right') return 'left'; if (dir === 'top') return 'bottom'; if (dir === 'bottom') return 'top'; }
+    function getPipeConnections(pipe) {
+        if (!pipe || pipe.type === 'obstacle') return [];
+        if (pipe.type === 'straight') return pipe.rotation % 2 === 0 ? ['top', 'bottom'] : ['left', 'right'];
+        if (pipe.type === 'elbow') { const elbowDirs = [['bottom', 'right'], ['top', 'right'], ['top', 'left'], ['bottom', 'left']]; return elbowDirs[pipe.rotation]; }
+        return [];
+    }
+    function findPipePath() {
+        let r = gridConfig.start.r; let c = gridConfig.start.c; let exitDir = 'right';
+        const path = [{r, c}]; const visited = new Set([`${r},${c}`]);
+        for (let i = 0; i < gridConfig.rows * gridConfig.cols; i++) {
+            if (exitDir === 'right') c++; else if (exitDir === 'left') c--; else if (exitDir === 'top') r--; else if (exitDir === 'bottom') r++;
+            if (r < 0 || r >= gridConfig.rows || c < 0 || c >= gridConfig.cols || visited.has(`${r},${c}`) || gameState.pipeGridState[r][c]?.type === 'obstacle') return null;
+            path.push({r, c}); visited.add(`${r},${c}`);
+            const entryDir = getOppositeDir(exitDir);
+            if (r === gridConfig.end.r && c === gridConfig.end.c) return entryDir === 'left' ? path : null;
+            const pipe = gameState.pipeGridState[r][c]; if (!pipe) return null;
+            const connections = getPipeConnections(pipe); const entryIndex = connections.indexOf(entryDir); if (entryIndex === -1) return null;
+            exitDir = connections[1 - entryIndex];
+        } return null;
+    }
+    function animateWaterFlow(path) { path.forEach((pos, i) => { setTimeout(() => { const cell = pipeGrid.querySelector(`[data-r='${pos.r}'][data-c='${pos.c}']`); if (cell) cell.classList.add('water-flow'); }, i * 100); }); }
+
+    // --- QUIZ LOGIC (CHALLENGE) ---
+    function startChallengeQuiz() { currentChallengeQuestionIndex = 0; challengeQuizScore = 0; challengeQuizAnswered = false; quizUi.classList.remove('ui-hidden'); displayNextChallengeQuestion(); }
+    function displayNextChallengeQuestion() {
+        if (currentChallengeQuestionIndex >= challengeQuizQuestions.length) { endChallengeQuiz(); return; }
+        const questionData = challengeQuizQuestions[currentChallengeQuestionIndex];
+        quizQuestionEl.textContent = questionData.question; quizOptionsEl.innerHTML = ''; quizFeedbackEl.innerHTML = ''; quizNextButton.classList.add('ui-hidden'); challengeQuizAnswered = false;
+        const progress = (currentChallengeQuestionIndex / challengeQuizQuestions.length) * 100; quizProgressBar.style.width = `${progress}%`;
+        const shuffledOptions = shuffleArray([...questionData.options]);
+        shuffledOptions.forEach(option => {
+            const button = document.createElement('button'); button.textContent = option; button.className = 'quiz-option block w-full p-4 rounded-lg text-left text-lg bg-white shadow-sm';
+            button.onclick = () => selectChallengeAnswer(button, option, questionData.correct, questionData.explanation); quizOptionsEl.appendChild(button);
+        });
+    }
+    function selectChallengeAnswer(buttonEl, selectedOption, correctAnswer, explanation) {
+        if (challengeQuizAnswered) return; challengeQuizAnswered = true;
+        logQuizResult(challengeQuizQuestions[currentChallengeQuestionIndex].question, selectedOption, correctAnswer);
+        const options = quizOptionsEl.querySelectorAll('.quiz-option'); options.forEach(opt => { opt.disabled = true; if (opt.textContent === correctAnswer) opt.classList.add('correct'); });
+        if (selectedOption === correctAnswer) { challengeQuizScore++; buttonEl.classList.add('correct'); quizFeedbackEl.innerHTML = `<span class="correct font-semibold text-green-600">✔ DATA VERIFIED</span>`; } 
+        else { buttonEl.classList.add('incorrect'); quizFeedbackEl.innerHTML = `<span class="incorrect font-semibold text-red-600">✘ DATA CORRUPT</span> <span class="text-sm text-gray-500 block">Correct: ${correctAnswer}</span>`; let currentIntegrity = parseInt(integrityScoreEl.innerText.replace('%','')); integrityScoreEl.innerText = Math.max(0, currentIntegrity - 10) + "%"; integrityScoreEl.parentElement.classList.remove('bg-blue-100', 'text-blue-600'); integrityScoreEl.parentElement.classList.add('bg-red-100', 'text-red-600'); }
+        if (explanation) quizFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono border-t pt-2">${explanation}</p>`;
+        quizNextButton.classList.remove('ui-hidden');
+        if (currentChallengeQuestionIndex >= challengeQuizQuestions.length - 1) quizNextButton.textContent = "UPLOAD RESULTS >>"; else quizNextButton.textContent = "CONFIRM ENTRY >>";
+        currentChallengeQuestionIndex++;
+    }
+    function endChallengeQuiz() { quizUi.classList.add('ui-hidden'); l1EndQuizResult.textContent = `You scored ${challengeQuizScore} out of ${challengeQuizQuestions.length} on the quiz!`; l1EndScreen.classList.remove('ui-hidden'); }
+
+    // --- QUIZ LOGIC (GATEKEEPER) ---
+    function startGatekeeperQuiz() {
+        l2EndScreen.classList.add('ui-hidden');
+        const gatekeeperQuestion = quizData.find(q => q.context === 'gatekeeper');
+        if (!gatekeeperQuestion) { startLevel3(); return; }
+        gatekeeperQuestionEl.textContent = gatekeeperQuestion.question; gatekeeperOptionsEl.innerHTML = ''; gatekeeperFeedbackEl.innerHTML = ''; gatekeeperContinueButton.classList.add('ui-hidden');
+        const shuffledOptions = shuffleArray([...gatekeeperQuestion.options]);
+        shuffledOptions.forEach(option => {
+            const button = document.createElement('button'); button.textContent = option; button.className = 'gatekeeper-option block w-full p-4 rounded-lg text-left text-lg bg-white shadow-sm font-medium text-slate-700';
+            button.onclick = () => checkGatekeeperAnswer(button, option, gatekeeperQuestion.correct, gatekeeperQuestion.explanation); gatekeeperOptionsEl.appendChild(button);
+        });
+        gatekeeperQuizUi.classList.remove('ui-hidden');
+    }
+    function checkGatekeeperAnswer(buttonEl, selectedOption, correctAnswer, explanation) {
+        const qData = quizData.find(q => q.context === 'gatekeeper');
+        logQuizResult(qData.question, selectedOption, correctAnswer);
+        const options = gatekeeperOptionsEl.querySelectorAll('.gatekeeper-option'); options.forEach(opt => { opt.disabled = true; });
+        if (selectedOption === correctAnswer) { buttonEl.classList.add('correct'); gatekeeperFeedbackEl.innerHTML = `<span class="correct font-bold text-green-600">✔ PROTOCOL APPROVED</span>`; if (explanation) gatekeeperFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono">${explanation}</p>`; gatekeeperContinueButton.classList.remove('ui-hidden'); } 
+        else { buttonEl.classList.add('incorrect'); gatekeeperFeedbackEl.innerHTML = `<span class="incorrect font-bold text-red-600">⚠ SAFETY HAZARD DETECTED</span> <br><span class="text-sm">Review protocols and retry.</span>`; if (explanation) gatekeeperFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono">${explanation}</p>`; setTimeout(() => { options.forEach(opt => { opt.disabled = false; opt.classList.remove('incorrect', 'correct'); }); gatekeeperFeedbackEl.innerHTML = ''; }, 2500); }
+    }
+
+    // --- GEMINI API ---
+    async function callGeminiAPI() { geminiButton.disabled = true; geminiPlaceholder.classList.add('ui-hidden'); geminiLoader.classList.remove('ui-hidden'); const systemPrompt = "You are an engineering mentor. Analyze notes and provide a JSON object with a 'problemSummary' (a single, encouraging sentence) and 'keyIssues' (an array of objects, each with 'issue', 'details', 'nextStep'). Keep text concise for a game."; const userQuery = `My notes on the water crisis:\n- ${gameState.clues.join('\n- ')}`; const apiKey = ""; const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`; const payload = { contents: [{ parts: [{ text: userQuery }] }], systemInstruction: { parts: [{ text: systemPrompt }] }, generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { "problemSummary": { "type": "STRING" }, "keyIssues": { type: "ARRAY", items: { type: "OBJECT", properties: { "issue": { "type": "STRING" }, "details": { "type": "STRING" }, "nextStep": { "type": "STRING" } }, required: ["issue", "details", "nextStep"] } } }, required: ["problemSummary", "keyIssues"] } } }; try { const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(`API Error: ${response.statusText}`); const result = await response.json(); const text = result.candidates?.[0]?.content?.parts?.[0]?.text; if (text) { const analysis = JSON.parse(text); gameState.mentorAnalysis = analysis; gameState.geminiAnalysisComplete = true; geminiOutput.innerHTML = `<p class="font-semibold">${analysis.problemSummary}</p>`; analysisHeader.textContent = "Problem Summary"; geminiButton.classList.add('ui-hidden'); } else { geminiOutput.textContent = "Could not get analysis. Try again."; geminiButton.disabled = false; } } catch (error) { console.error("Gemini API call failed:", error); geminiOutput.textContent = "Error connecting to mentor AI."; geminiButton.disabled = false; } finally { geminiLoader.classList.add('ui-hidden'); } }
+
+    // Kickoff is now handled by startButton -> handleStartClick
+</script>
+</body>
+</html>
