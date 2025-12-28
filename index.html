@@ -659,6 +659,12 @@
                                         </div>
                                     </div>
                                     <button id="start-boil-button" class="btn bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg w-full shadow-md transition-colors">Start Boiling Process</button>
+                                    
+                                    <!-- Boiling Progress Bar -->
+                                    <div id="boil-progress-container" class="w-full bg-gray-200 rounded-full h-5 mt-4 ui-hidden border border-gray-300 overflow-hidden relative shadow-inner">
+                                        <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-500 z-10 tracking-widest uppercase">Heating Water...</div>
+                                        <div id="boil-progress-bar" class="bg-gradient-to-r from-orange-400 to-red-600 h-full transition-all ease-linear" style="width: 0%"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -801,6 +807,8 @@
     const boilTimeDisplay = document.getElementById('boil-time-display');
     const startBoilButton = document.getElementById('start-boil-button');
     const boilTimeContainer = document.getElementById('boil-time-container');
+    const boilProgressContainer = document.getElementById('boil-progress-container'); // NEW
+    const boilProgressBar = document.getElementById('boil-progress-bar'); // NEW
     const l3EndScreen = document.getElementById('l3-end-screen');
     const continueL4Button = document.getElementById('continue-l4-button');
     const displayTankVolumeEl = document.getElementById('display-tank-volume');
@@ -1405,9 +1413,17 @@
             purificationResultsTitle.textContent = "Thermal Disinfection"; instructionText.textContent = "Set the boiling duration.";
             chemicalInputPanel.classList.add('ui-hidden'); purificationGrid.classList.remove('grid', 'grid-cols-2'); purificationGrid.classList.add('flex', 'justify-center');
             selectedChemicalText.textContent = "Boil Water"; selectedChemicalText.className = "text-red-700";
-            boilSlider.value = 0; boilTimeDisplay.textContent = "0"; gameState.selectedElevation = null;
+            
+            // Reset Slider & Selection
+            boilSlider.value = 0; boilSlider.disabled = false; // Ensure slider is enabled
+            boilTimeDisplay.textContent = "0"; gameState.selectedElevation = null;
             document.getElementById('elev-low').classList.remove('selected'); document.getElementById('elev-high').classList.remove('selected');
             boilTimeContainer.classList.add('opacity-50', 'pointer-events-none'); boilMinigameEl.classList.remove('ui-hidden');
+            
+            // Reset Progress Bar & Button
+            startBoilButton.disabled = false; startBoilButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            boilProgressContainer.classList.add('ui-hidden'); boilProgressBar.style.width = '0%';
+
             purificationFeedback.innerHTML = `<div class="text-6xl mb-4 animate-pulse">🔥</div><p class="text-gray-500">Ready to ignite burners.</p>`; 
         }
     }
@@ -1418,16 +1434,60 @@
     function handleBoilSubmit() {
         const time = parseInt(boilSlider.value); let minTime = 1; if (gameState.selectedElevation === 'high') minTime = 3;
         logTaskEvent(`Boil Attempt: Elevation ${gameState.selectedElevation}, Time ${time} min`);
-        if (time === 0) purificationFeedback.innerHTML = `<div class="feedback-icon text-red-500">❌</div><p class="font-bold text-red-600">FAILED!</p><p>Water was not boiled at all.</p>`;
-        else if (time < minTime) purificationFeedback.innerHTML = `<div class="feedback-icon text-red-500">❌</div><p class="font-bold text-red-600">UNSAFE!</p><p>Time insufficient for selected elevation zone.</p>`;
+        
+        if (time === 0) {
+            purificationFeedback.innerHTML = `<div class="feedback-icon text-red-500">❌</div><p class="font-bold text-red-600">FAILED!</p><p>Water was not boiled at all.</p>`;
+            return;
+        }
+
+        // Start Animation Sequence
+        startBoilButton.disabled = true; 
+        startBoilButton.classList.add('opacity-50', 'cursor-not-allowed');
+        boilSlider.disabled = true; // Lock slider during boil
+        boilProgressContainer.classList.remove('ui-hidden');
+        purificationFeedback.innerHTML = `<div class="text-6xl mb-4 animate-bounce">♨️</div><p class="text-orange-600 font-bold">Boiling in progress...</p>`;
+
+        // Duration: 1 second real time per 1 minute simulated time
+        const duration = time * 1000;
+        let startTime = null;
+
+        function animate(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const progress = Math.min((elapsed / duration) * 100, 100);
+            
+            boilProgressBar.style.width = `${progress}%`;
+
+            if (elapsed < duration) {
+                requestAnimationFrame(animate);
+            } else {
+                finalizeBoil(time, minTime);
+            }
+        }
+        requestAnimationFrame(animate);
+    }
+
+    function finalizeBoil(time, minTime) {
+        if (time < minTime) { 
+             purificationFeedback.innerHTML = `<div class="feedback-icon text-red-500">❌</div><p class="font-bold text-red-600">UNSAFE!</p><p>Time insufficient for selected elevation zone.</p>`;
+             // Allow retry after a short delay
+             setTimeout(() => {
+                 startBoilButton.disabled = false;
+                 startBoilButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                 boilSlider.disabled = false;
+                 boilProgressContainer.classList.add('ui-hidden');
+                 boilProgressBar.style.width = '0%';
+             }, 2000);
+        }
         else {
             let msg = "Water is safe to drink."; let icon = "✅"; let titleClass = "text-green-600";
             if (time > 5) { msg += " (Note: Excess fuel used, but water is safe.)"; icon = "⚠️"; titleClass = "text-yellow-600"; }
             purificationFeedback.innerHTML = `<div class="feedback-icon text-green-500">${icon}</div><p class="font-bold ${titleClass}">SUCCESS!</p><p>${msg}</p>`;
-            startBoilButton.disabled = true; startBoilButton.classList.add('opacity-50', 'cursor-not-allowed');
+            // Keep button disabled on success
             completeObjective('purify_water');
         }
     }
+
     function treatWater() { 
         const volume = parseInt(tankVolumeEl.textContent); const rate = parseInt(dosageRateEl.textContent); const correctDosage = volume * rate; const playerDosage = parseInt(chlorineInput.value); 
         logTaskEvent(`Chemical Treat Attempt: Method ${gameState.purificationMethod}, Input ${playerDosage}, Correct ${correctDosage}`);
