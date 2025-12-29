@@ -205,8 +205,6 @@
             100% { transform: translateX(-35%) scale(1.1); }
         }
 
-        /* Removed Rain Overlay, Lightning, and Surge Water styles */
-
         /* Level 2 Styles */
         .resource-item { cursor: grab; user-select: none; }
         .resource-item:active { cursor: grabbing; }
@@ -717,6 +715,33 @@
     </div>
 
 <script>
+    // --- AUDIO SYSTEM ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playTone(freq, type, duration) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+    
+    function playSuccessSound() {
+        playTone(600, 'sine', 0.1);
+        setTimeout(() => playTone(800, 'sine', 0.2), 100);
+    }
+
+    function playFailureSound() {
+        playTone(300, 'sawtooth', 0.2);
+        setTimeout(() => playTone(200, 'sawtooth', 0.2), 150);
+    }
+
     // --- DOM ELEMENTS ---
     const gameContainer = document.getElementById('game-container');
     const startScreen = document.getElementById('start-screen');
@@ -1060,6 +1085,7 @@
             alert("Please enter a Player ID to track your engineering progress.");
             return;
         }
+        if (audioCtx.state === 'suspended') audioCtx.resume(); // RESUME AUDIO CONTEXT
         sessionData.playerId = idInput.value.trim();
         sessionData.startTime = Date.now();
         startIntroSequence();
@@ -1285,8 +1311,15 @@
         logQuizResult(quizData.find(q => q.context === quizContext).question, selectedOption, correctAnswer);
         const options = dialogueOptionsContainer.querySelectorAll('.npc-quiz-option');
         options.forEach(opt => { opt.disabled = true; if (opt.textContent === correctAnswer) opt.classList.add('correct'); else opt.classList.add('opacity-50'); });
-        if (selectedOption === correctAnswer) { buttonEl.classList.add('correct'); dialogueFeedbackEl.innerHTML = `<span class="dialogue-feedback correct">Protocol Verified.</span>`; } 
-        else { buttonEl.classList.add('incorrect'); dialogueFeedbackEl.innerHTML = `<span class="dialogue-feedback incorrect">Error.</span> Correct protocol: "${correctAnswer}".`; }
+        if (selectedOption === correctAnswer) { 
+            playSuccessSound();
+            buttonEl.classList.add('correct'); 
+            dialogueFeedbackEl.innerHTML = `<span class="dialogue-feedback correct">Protocol Verified.</span>`; 
+        } else { 
+            playFailureSound();
+            buttonEl.classList.add('incorrect'); 
+            dialogueFeedbackEl.innerHTML = `<span class="dialogue-feedback incorrect">Error.</span> Incorrect protocol.`; 
+        }
         npcQuizAnswered[quizContext] = true; setTimeout(() => { dialogueContinue.classList.remove('ui-hidden'); }, 1500);
     }
 
@@ -1447,8 +1480,8 @@
         boilProgressContainer.classList.remove('ui-hidden');
         purificationFeedback.innerHTML = `<div class="text-6xl mb-4 animate-bounce">♨️</div><p class="text-orange-600 font-bold">Boiling in progress...</p>`;
 
-        // Duration: 1 second real time per 1 minute simulated time
-        const duration = time * 1000;
+        // Duration: 3 seconds real time per 1 minute simulated time (Updated per request)
+        const duration = time * 3000;
         let startTime = null;
 
         function animate(timestamp) {
@@ -1633,8 +1666,14 @@
         if (challengeQuizAnswered) return; challengeQuizAnswered = true;
         logQuizResult(challengeQuizQuestions[currentChallengeQuestionIndex].question, selectedOption, correctAnswer);
         const options = quizOptionsEl.querySelectorAll('.quiz-option'); options.forEach(opt => { opt.disabled = true; if (opt.textContent === correctAnswer) opt.classList.add('correct'); });
-        if (selectedOption === correctAnswer) { challengeQuizScore++; buttonEl.classList.add('correct'); quizFeedbackEl.innerHTML = `<span class="correct font-semibold text-green-600">✔ DATA VERIFIED</span>`; } 
-        else { buttonEl.classList.add('incorrect'); quizFeedbackEl.innerHTML = `<span class="incorrect font-semibold text-red-600">✘ DATA CORRUPT</span> <span class="text-sm text-gray-500 block">Correct: ${correctAnswer}</span>`; let currentIntegrity = parseInt(integrityScoreEl.innerText.replace('%','')); integrityScoreEl.innerText = Math.max(0, currentIntegrity - 10) + "%"; integrityScoreEl.parentElement.classList.remove('bg-blue-100', 'text-blue-600'); integrityScoreEl.parentElement.classList.add('bg-red-100', 'text-red-600'); }
+        if (selectedOption === correctAnswer) { 
+            playSuccessSound();
+            challengeQuizScore++; buttonEl.classList.add('correct'); quizFeedbackEl.innerHTML = `<span class="correct font-semibold text-green-600">✔ DATA VERIFIED</span>`; 
+        } 
+        else { 
+            playFailureSound();
+            buttonEl.classList.add('incorrect'); quizFeedbackEl.innerHTML = `<span class="incorrect font-semibold text-red-600">✘ DATA CORRUPT</span> <span class="text-sm text-gray-500 block">Correct: ${correctAnswer}</span>`; let currentIntegrity = parseInt(integrityScoreEl.innerText.replace('%','')); integrityScoreEl.innerText = Math.max(0, currentIntegrity - 10) + "%"; integrityScoreEl.parentElement.classList.remove('bg-blue-100', 'text-blue-600'); integrityScoreEl.parentElement.classList.add('bg-red-100', 'text-red-600'); 
+        }
         if (explanation) quizFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono border-t pt-2">${explanation}</p>`;
         quizNextButton.classList.remove('ui-hidden');
         if (currentChallengeQuestionIndex >= challengeQuizQuestions.length - 1) quizNextButton.textContent = "UPLOAD RESULTS >>"; else quizNextButton.textContent = "CONFIRM ENTRY >>";
@@ -1659,8 +1698,14 @@
         const qData = quizData.find(q => q.context === 'gatekeeper');
         logQuizResult(qData.question, selectedOption, correctAnswer);
         const options = gatekeeperOptionsEl.querySelectorAll('.gatekeeper-option'); options.forEach(opt => { opt.disabled = true; });
-        if (selectedOption === correctAnswer) { buttonEl.classList.add('correct'); gatekeeperFeedbackEl.innerHTML = `<span class="correct font-bold text-green-600">✔ PROTOCOL APPROVED</span>`; if (explanation) gatekeeperFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono">${explanation}</p>`; gatekeeperContinueButton.classList.remove('ui-hidden'); } 
-        else { buttonEl.classList.add('incorrect'); gatekeeperFeedbackEl.innerHTML = `<span class="incorrect font-bold text-red-600">⚠ SAFETY HAZARD DETECTED</span> <br><span class="text-sm">Review protocols and retry.</span>`; if (explanation) gatekeeperFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono">${explanation}</p>`; setTimeout(() => { options.forEach(opt => { opt.disabled = false; opt.classList.remove('incorrect', 'correct'); }); gatekeeperFeedbackEl.innerHTML = ''; }, 2500); }
+        if (selectedOption === correctAnswer) { 
+            playSuccessSound();
+            buttonEl.classList.add('correct'); gatekeeperFeedbackEl.innerHTML = `<span class="correct font-bold text-green-600">✔ PROTOCOL APPROVED</span>`; if (explanation) gatekeeperFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono">${explanation}</p>`; gatekeeperContinueButton.classList.remove('ui-hidden'); 
+        } 
+        else { 
+            playFailureSound();
+            buttonEl.classList.add('incorrect'); gatekeeperFeedbackEl.innerHTML = `<span class="incorrect font-bold text-red-600">⚠ SAFETY HAZARD DETECTED</span> <br><span class="text-sm">Review protocols and retry.</span>`; if (explanation) gatekeeperFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono">${explanation}</p>`; setTimeout(() => { options.forEach(opt => { opt.disabled = false; opt.classList.remove('incorrect', 'correct'); }); gatekeeperFeedbackEl.innerHTML = ''; }, 2500); 
+        }
     }
 
     // --- GEMINI API ---
