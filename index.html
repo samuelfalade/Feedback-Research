@@ -742,8 +742,11 @@
         const gain = audioCtx.createGain();
         osc.type = type;
         osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        
+        // Set volume and decay using linear ramp for better audibility of short sounds
         gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
@@ -759,11 +762,12 @@
         src.connect(gain);
         gain.connect(audioCtx.destination);
         gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + duration);
         src.start();
         src.stop(audioCtx.currentTime + duration);
     }
     
+    // SFX Object as requested
     const sfx = {
         success: () => { playTone(600,'sine',0.1); setTimeout(()=>playTone(800,'sine',0.2),100); },
         fail: () => { playTone(300,'sawtooth',0.2); setTimeout(()=>playTone(200,'sawtooth',0.2),150); },
@@ -789,7 +793,7 @@
             element.textContent += text.charAt(i);
             
             // Play sound using new sfx object
-            sfx.type(); 
+            if(sfx.type) sfx.type(); 
 
             i++;
             if (i > text.length - 1) {
@@ -1536,18 +1540,25 @@
     function handleDragLeave(e) { if (e.target.classList.contains('drop-zone')) e.target.classList.remove('over'); }
     function handleDrop(e) {
         e.preventDefault();
-        if (e.target.classList.contains('drop-zone') && draggedItem && gameState.filterLayers.length < 3) {
+        // Removed limit of 3 layers
+        if (e.target.classList.contains('drop-zone') && draggedItem) {
             const resource = draggedItem.dataset.resource; gameState.filterLayers.push(resource); draggedItem.style.display = 'none';
-            renderFilterLayers(); if (gameState.filterLayers.length === 3) testFilterButton.disabled = false;
+            renderFilterLayers(); 
+            // Enable test button if at least 3 layers are present (minimum for valid filter)
+            if (gameState.filterLayers.length >= 3) testFilterButton.disabled = false;
         }
         if (e.target.classList.contains('drop-zone')) e.target.classList.remove('over'); draggedItem = null;
     }
     function renderFilterLayers() {
-        filterContainer.innerHTML = ''; const layerHeightPercentage = 22;
+        filterContainer.innerHTML = ''; 
+        // Adjust height based on number of layers to fit them all, maxing out at 100%
+        const count = gameState.filterLayers.length;
+        const layerHeightPercentage = count > 0 ? Math.min(22, 100 / count) : 22;
+        
         gameState.filterLayers.forEach((layer, index) => {
             const layerDiv = document.createElement('div'); layerDiv.className = 'filter-layer';
-            // Changed: Now displays text for all layers, not just specific correct ones
-            layerDiv.textContent = layer + " (x)"; // Visual cue for removal
+            // Changed: Removed " (x)" suffix, just showing the name
+            layerDiv.textContent = layer; 
             layerDiv.style.cursor = 'pointer'; // Visual cue
             layerDiv.title = "Click to remove";
             layerDiv.style.height = `${layerHeightPercentage}%`; layerDiv.style.bottom = `${index * layerHeightPercentage}%`;
@@ -1565,7 +1576,7 @@
                 else if (layer === 'Silt') l2Silt.style.display = 'block';
                 else if (layer === 'Leaves') l2Leaves.style.display = 'block';
 
-                testFilterButton.disabled = true; // Disable test if not full
+                if (gameState.filterLayers.length < 3) testFilterButton.disabled = true; // Disable test if less than 3
                 waterAnimation.style.height = '0%'; waterAnimation.classList.remove('clean'); // Reset result
                 feedbackBox.innerHTML = '<p>Build your filter and run a test.</p>';
                 
@@ -1578,7 +1589,11 @@
     function testFilter() {
         testFilterButton.disabled = true; resetFilterButton.disabled = true; mentorHintBox.classList.add('ui-hidden');
         const usedDistractor = gameState.filterLayers.some(layer => ['Clay', 'Silt', 'Leaves'].includes(layer));
-        const isCorrect = gameState.filterLayers.length === 3 && gameState.filterLayers[0] === 'Charcoal' && gameState.filterLayers[1] === 'Sand' && gameState.filterLayers[2] === 'Gravel' && !usedDistractor;
+        // Logic check: Must have at least 3 layers. 
+        // Strict Check: The BOTTOM 3 layers (index 0, 1, 2) must be Charcoal, Sand, Gravel in that order.
+        // Or if you want exactly 3 specific layers:
+        const isCorrect = gameState.filterLayers.length >= 3 && gameState.filterLayers[0] === 'Charcoal' && gameState.filterLayers[1] === 'Sand' && gameState.filterLayers[2] === 'Gravel' && !usedDistractor;
+        
         logTaskEvent(`Tested Filter: Layers [${gameState.filterLayers.join(', ')}] - Result: ${isCorrect ? 'Success' : 'Failure'}`);
         waterAnimation.style.height = '100%';
         if (isCorrect) {
@@ -1588,7 +1603,7 @@
             let failureReason = "Check your layer order or materials used.";
             if (usedDistractor) {
                  if (gameState.filterLayers.includes('Clay')) failureReason = "Clay clogs the filter!"; else if (gameState.filterLayers.includes('Silt')) failureReason = "Silt is too fine."; else if (gameState.filterLayers.includes('Leaves')) failureReason = "Leaves decompose.";
-            } else if (gameState.filterLayers.length !== 3) failureReason = "You must use exactly three filter layers.";
+            } else if (gameState.filterLayers.length < 3) failureReason = "You need more layers.";
             else failureReason = "Think about the order: finest particles first (bottom) to largest (top)."
             feedbackBox.innerHTML = `<p class="font-bold text-red-600">FAILURE</p><p>The water is still muddy. ${failureReason}</p>`;
             setTimeout(() => { resetFilterButton.disabled = false; }, 2000);
