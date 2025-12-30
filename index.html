@@ -46,6 +46,20 @@
             color: #1f2937;
             border-radius: 0.75rem;
         }
+        
+        /* Updated Dialogue Box Positioning (Top of Screen) */
+        #dialogue-box {
+            position: absolute;
+            top: 2rem; /* Moved to top */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 75%;
+            max-width: 56rem; /* max-w-4xl */
+            padding: 1.5rem;
+            z-index: 30;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
         /* Gamified Quiz Device Styles */
         .device-casing {
             background-color: #1f2937; /* Dark gray casing */
@@ -392,9 +406,9 @@
         </div>
 
         <!-- Dialogue Box -->
-        <div id="dialogue-box" class="absolute bottom-10 left-1/2 -translate-x-1/2 w-3/4 max-w-4xl p-6 rounded-xl shadow-2xl ui-hidden z-30">
+        <div id="dialogue-box" class="ui-hidden z-30">
             <p id="dialogue-npc-name" class="font-bold text-lg text-blue-700 mb-2"></p>
-            <p id="dialogue-text" class="text-gray-800 mb-4"></p>
+            <p id="dialogue-text" class="text-gray-800 mb-4 text-lg leading-relaxed min-h-[3rem]"></p>
             <!-- Container for dialogue options / quiz options -->
             <div id="dialogue-options-container" class="space-y-3 mb-4"></div>
              <!-- Feedback area for NPC quiz -->
@@ -588,11 +602,7 @@
                 <h1 class="text-3xl font-bold text-blue-800 mb-2">Level 3: Purification & Disinfection</h1>
                 <div id="purification-choice">
                      <p class="text-gray-600 mb-8">Choose a method to disinfect the water. Consider the volume (~<span id="display-tank-volume">1000</span>L) needed for the community.</p>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div id="select-chlorine-button" class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer">
-                            <h3 class="font-bold text-xl text-blue-700 mb-2">Use Chlorine Drops</h3>
-                            <p class="text-gray-600 text-sm">Efficient chemical purification. Requires precise calculation.</p>
-                        </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div id="select-bleach-button" class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer">
                             <h3 class="font-bold text-xl text-yellow-700 mb-2">Use Household Bleach</h3>
                             <p class="text-gray-600 text-sm">Common alternative (unscented 6%). Requires different calculation.</p>
@@ -718,28 +728,76 @@
     // --- AUDIO SYSTEM ---
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
-    function playTone(freq, type, duration) {
+    // Pre-generate noise buffer for noise effects
+    const noiseBufferSize = audioCtx.sampleRate * 5; 
+    const noiseBuffer = audioCtx.createBuffer(1, noiseBufferSize, audioCtx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < noiseBufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+    }
+    
+    function playTone(freq, type, duration, vol = 0.1) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = type;
         osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
         osc.stop(audioCtx.currentTime + duration);
     }
-    
-    function playSuccessSound() {
-        playTone(600, 'sine', 0.1);
-        setTimeout(() => playTone(800, 'sine', 0.2), 100);
-    }
 
-    function playFailureSound() {
-        playTone(300, 'sawtooth', 0.2);
-        setTimeout(() => playTone(200, 'sawtooth', 0.2), 150);
+    function playNoise(duration) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const src = audioCtx.createBufferSource();
+        src.buffer = noiseBuffer;
+        src.loop = true;
+        const gain = audioCtx.createGain();
+        src.connect(gain);
+        gain.connect(audioCtx.destination);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        src.start();
+        src.stop(audioCtx.currentTime + duration);
+    }
+    
+    const sfx = {
+        success: () => { playTone(600,'sine',0.1); setTimeout(()=>playTone(800,'sine',0.2),100); },
+        fail: () => { playTone(300,'sawtooth',0.2); setTimeout(()=>playTone(200,'sawtooth',0.2),150); },
+        type: () => playTone(800,'square',0.03,0.03),
+        plop: () => playTone(400,'sine',0.1,0.1),
+        storm: () => playNoise(4.0),
+        splash: () => playNoise(0.4),
+        boil: () => { let c = 0; const i = setInterval(() => { playTone(100 + Math.random()*50, 'triangle', 0.05, 0.05); c++; if(c > 20) clearInterval(i); }, 100); }
+    };
+
+    let typingInterval = null;
+
+    function typeWriterEffect(text, element, speed = 30, onComplete) {
+        if (typingInterval) clearInterval(typingInterval);
+        element.textContent = '';
+        let i = 0;
+        
+        // Hide continue button while typing
+        const continueBtn = document.getElementById('dialogue-continue');
+        if (continueBtn) continueBtn.classList.add('ui-hidden');
+
+        typingInterval = setInterval(() => {
+            element.textContent += text.charAt(i);
+            
+            // Play sound using new sfx object
+            sfx.type(); 
+
+            i++;
+            if (i > text.length - 1) {
+                clearInterval(typingInterval);
+                typingInterval = null;
+                if (onComplete) onComplete();
+            }
+        }, speed);
     }
 
     // --- DOM ELEMENTS ---
@@ -814,7 +872,7 @@
     const chemicalInputPanel = document.getElementById('chemical-input-panel');
     const purificationResultsArea = document.getElementById('purification-results-area');
     const purificationResultsTitle = document.getElementById('purification-results-title');
-    const selectChlorineButton = document.getElementById('select-chlorine-button');
+    // Removed selectChlorineButton
     const selectBleachButton = document.getElementById('select-bleach-button');
     const selectBoilButton = document.getElementById('select-boil-button');
     const changeMethodButton = document.getElementById('change-method-button');
@@ -932,7 +990,8 @@
     const world = { width: 1600, height: 600 };
     canvas.width = world.width; canvas.height = world.height;
     const camera = { x: 0, y: 0, width: canvas.width, height: canvas.height };
-    const player = { x: 100, y: world.height - 100, width: 40, height: 60, dx: 0, dy: 0, speed: 5, jumpPower: 12, isJumping: false, grounded: false, color: '#3B82F6' };
+    // Added 'facing' property to player
+    const player = { x: 100, y: world.height - 100, width: 40, height: 60, dx: 0, dy: 0, speed: 5, jumpPower: 12, isJumping: false, grounded: false, color: '#3B82F6', facing: 'right' };
     const keys = { left: false, right: false, up: false };
     const platforms = [
         { x: 0, y: world.height - 40, width: world.width, height: 40, color: '#22C55E' }, 
@@ -951,10 +1010,35 @@
         {x: 1500, y: 80, scale: 1.1, speed: 0.35}
     ];
 
+    // --- SPRITE SYSTEM ---
+    const sprites = {};
+    
+    function loadSprite(key, svgString) {
+        const img = new Image();
+        img.src = 'data:image/svg+xml;base64,' + btoa(svgString);
+        sprites[key] = img;
+    }
+
+    // Define SVGs for characters
+    const svgPlayer = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 60'><rect x='10' y='50' width='8' height='10' fill='#111'/><rect x='22' y='50' width='8' height='10' fill='#111'/><rect x='8' y='25' width='24' height='25' rx='3' fill='#2563EB'/><rect x='10' y='25' width='20' height='25' rx='1' fill='#3B82F6'/><rect x='15' y='25' width='10' height='25' fill='#fff' opacity='0.2'/><circle cx='20' cy='16' r='9' fill='#ffdbac'/><path d='M8 12 Q20 5 32 12' fill='#FBBF24'/><rect x='6' y='12' width='28' height='4' rx='2' fill='#F59E0B'/></svg>`;
+    
+    const svgElder = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 60'><rect x='10' y='50' width='8' height='10' fill='#444'/><rect x='22' y='50' width='8' height='10' fill='#444'/><path d='M8 25 L32 25 L36 55 L4 55 Z' fill='#7C3AED'/><circle cx='20' cy='16' r='9' fill='#d1d5db'/><path d='M14 20 Q20 35 26 20' fill='#eee'/><rect x='32' y='20' width='4' height='40' fill='#78350f'/></svg>`;
+    
+    const svgMother = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 60'><path d='M8 58 L32 58 L28 30 L12 30 Z' fill='#EC4899'/><rect x='12' y='25' width='16' height='15' rx='2' fill='#F472B6'/><circle cx='20' cy='16' r='8' fill='#8b4513'/><circle cx='20' cy='18' r='7' fill='#6b2e0f'/></svg>`;
+    
+    const svgFarmer = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 60'><rect x='10' y='45' width='8' height='15' fill='#1E40AF'/><rect x='22' y='45' width='8' height='15' fill='#1E40AF'/><rect x='10' y='30' width='20' height='20' fill='#2563EB'/><circle cx='20' cy='18' r='9' fill='#ffdbac'/><ellipse cx='20' cy='12' rx='14' ry='4' fill='#D97706'/><rect x='12' y='8' width='16' height='6' fill='#B45309'/></svg>`;
+
+    // Load them
+    loadSprite('player', svgPlayer);
+    loadSprite('elder', svgElder);
+    loadSprite('mother', svgMother);
+    loadSprite('farmer', svgFarmer);
+
+    // Updated NPCs with sprite keys
     const npcs = [
-        { id: 'elder', name: 'Village Elder', x: 300, y: world.height - 100 - 55, width: 40, height: 55, color: '#7C3AED', dialogue: ["Welcome, young engineer...", "Before we discuss the well, a quick question...", { quizContext: 'npc_elder' }, "Our well... is now filled with saltwater...", "We need help..."], clue: "The main well is contaminated with saltwater.", patrolMinX: 220, patrolMaxX: 430, dx: 0.5 },
-        { id: 'mother', name: 'Mother', x: 850, y: world.height - 120 - 55, width: 40, height: 55, color: '#EC4899', dialogue: ["My children... they have been sick...", "We've been forced to drink from the river...", "Anything you can do would be a blessing."], clue: "People are getting sick from drinking muddy river water.", patrolMinX: 820, patrolMaxX: 980, dx: -0.5 },
-        { id: 'farmer', name: 'Farmer', x: 1180, y: world.height - 150 - 55, width: 40, height: 55, color: '#F97316', dialogue: ["My crops are failing...", "And now with no clean water...", "We need a system that can provide clean water..."], clue: "The community needs a reliable, long-term water source.", patrolMinX: 1170, patrolMaxX: 1310, dx: 0.5 },
+        { id: 'elder', name: 'Village Elder', x: 300, y: world.height - 100 - 55, width: 40, height: 60, color: '#7C3AED', spriteKey: 'elder', dialogue: ["Welcome, young engineer...", "Before we discuss the well, a quick question...", { quizContext: 'npc_elder' }, "Our well... is now filled with saltwater...", "We need help..."], clue: "The main well is contaminated with saltwater.", patrolMinX: 220, patrolMaxX: 430, dx: 0.5 },
+        { id: 'mother', name: 'Mother', x: 850, y: world.height - 120 - 55, width: 40, height: 60, color: '#EC4899', spriteKey: 'mother', dialogue: ["My children... they have been sick...", "We've been forced to drink from the river...", "Anything you can do would be a blessing."], clue: "People are getting sick from drinking muddy river water.", patrolMinX: 820, patrolMaxX: 980, dx: -0.5 },
+        { id: 'farmer', name: 'Farmer', x: 1180, y: world.height - 150 - 55, width: 40, height: 60, color: '#F97316', spriteKey: 'farmer', dialogue: ["My crops are failing...", "And now with no clean water...", "We need a system that can provide clean water..."], clue: "The community needs a reliable, long-term water source.", patrolMinX: 1170, patrolMaxX: 1310, dx: 0.5 },
     ];
     let currentNpcDialogueIndex = 0; 
     let currentNpc = null; 
@@ -981,7 +1065,7 @@
     resetFilterButton.addEventListener('click', resetFilter);
 
     // L3 Listeners
-    selectChlorineButton.addEventListener('click', () => selectPurificationMethod('Chlorine'));
+    // Removed chlorine listener
     selectBleachButton.addEventListener('click', () => selectPurificationMethod('Bleach'));
     selectBoilButton.addEventListener('click', () => selectPurificationMethod('Boil'));
     changeMethodButton.addEventListener('click', () => {
@@ -1159,9 +1243,54 @@
 
     // --- GAME LOOP & PHYSICS (UNCHANGED LOGIC) ---
     // ... (All draw/update functions remain same as previous version) ...
-    function drawPlayer() { ctx.fillStyle = player.color; ctx.fillRect(player.x, player.y, player.width, player.height); }
+    function drawPlayer() { 
+        const sprite = sprites['player'];
+        if (sprite) {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            // Flip if facing left
+            if (player.facing === 'left') {
+                ctx.translate(player.width, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(sprite, 0, 0, player.width, player.height);
+            ctx.restore();
+        } else {
+            // Fallback
+            ctx.fillStyle = player.color; 
+            ctx.fillRect(player.x, player.y, player.width, player.height); 
+        }
+    }
+    
     function drawPlatforms() { platforms.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.width, p.height); }); }
-    function drawNPCs() { npcs.forEach(npc => { ctx.fillStyle = npc.color; ctx.fillRect(npc.x, npc.y, npc.width, npc.height); if (checkCollision(player, npc)) { ctx.fillStyle = 'black'; ctx.font = '16px Poppins'; ctx.textAlign = 'center'; ctx.fillText('Talk [E]', npc.x + npc.width / 2, npc.y - 10); } }); }
+    
+    function drawNPCs() { 
+        npcs.forEach(npc => { 
+            const sprite = sprites[npc.spriteKey];
+            if (sprite) {
+                ctx.save();
+                ctx.translate(npc.x, npc.y);
+                // Flip based on movement direction (dx)
+                if (npc.dx > 0) {
+                     ctx.translate(npc.width, 0);
+                     ctx.scale(-1, 1);
+                }
+                ctx.drawImage(sprite, 0, 0, npc.width, npc.height);
+                ctx.restore();
+            } else {
+                ctx.fillStyle = npc.color; 
+                ctx.fillRect(npc.x, npc.y, npc.width, npc.height); 
+            }
+            
+            // Interaction Prompt
+            if (checkCollision(player, npc)) { 
+                ctx.fillStyle = 'black'; 
+                ctx.font = '16px Poppins'; 
+                ctx.textAlign = 'center'; 
+                ctx.fillText('Talk [E]', npc.x + npc.width / 2, npc.y - 10); 
+            } 
+        }); 
+    }
     
     function drawScenery() {
         ctx.fillStyle = '#4B5563';
@@ -1195,7 +1324,10 @@
 
     function updatePlayer() {
         let onMovingPlatform = null; let movingPlatformDX = 0;
-        if (keys.left) player.dx = -player.speed; else if (keys.right) player.dx = player.speed; else player.dx = 0;
+        if (keys.left) { player.dx = -player.speed; player.facing = 'left'; }
+        else if (keys.right) { player.dx = player.speed; player.facing = 'right'; }
+        else player.dx = 0;
+        
         if (keys.up && !player.isJumping && player.grounded) { player.dy = -player.jumpPower; player.isJumping = true; player.grounded = false; }
         player.dy += gravity;
         const originalX = player.x; const originalY = player.y;
@@ -1271,7 +1403,10 @@
         currentNpc = npc; currentNpcDialogueIndex = 0; gameState.playerInDialogue = true;
         dialogueBox.classList.remove('ui-hidden'); dialogueNpcName.textContent = npc.name;
         dialogueOptionsContainer.innerHTML = ''; dialogueFeedbackEl.innerHTML = '';
-        dialogueContinue.onclick = showNextDialogueLine;
+        
+        // Remove click handler since we are auto-advancing
+        dialogueContinue.onclick = null;
+        
         if (npc.id === 'elder') completeObjective('talk_elder');
         if (npc.id === 'mother') completeObjective('talk_mother');
         if (npc.id === 'farmer') completeObjective('talk_farmer');
@@ -1283,10 +1418,22 @@
         if (!currentNpc || currentNpcDialogueIndex >= currentNpc.dialogue.length) { endDialogue(currentNpc); return; }
         const line = currentNpc.dialogue[currentNpcDialogueIndex];
         dialogueOptionsContainer.innerHTML = ''; dialogueFeedbackEl.innerHTML = '';
-        dialogueContinue.classList.remove('ui-hidden');
+        
+        // Hide button always (Auto-advance mode)
+        dialogueContinue.classList.add('ui-hidden');
+
         if (typeof line === 'string') {
-            dialogueText.textContent = line; currentNpcDialogueIndex++;
+            typeWriterEffect(line, dialogueText, 30, () => {
+                // Auto advance after delay (2 seconds reading time)
+                setTimeout(() => {
+                    showNextDialogueLine();
+                }, 2000);
+            });
+            currentNpcDialogueIndex++;
         } else if (typeof line === 'object' && line.quizContext) {
+            // Stop any typing if interrupting
+            if (typingInterval) clearInterval(typingInterval);
+
             const quizContext = line.quizContext; const npcQuiz = quizData.find(q => q.context === quizContext);
             if (npcQuiz && !npcQuizAnswered[quizContext]) {
                  dialogueText.innerHTML = ''; 
@@ -1312,15 +1459,17 @@
         const options = dialogueOptionsContainer.querySelectorAll('.npc-quiz-option');
         options.forEach(opt => { opt.disabled = true; if (opt.textContent === correctAnswer) opt.classList.add('correct'); else opt.classList.add('opacity-50'); });
         if (selectedOption === correctAnswer) { 
-            playSuccessSound();
+            sfx.success();
             buttonEl.classList.add('correct'); 
             dialogueFeedbackEl.innerHTML = `<span class="dialogue-feedback correct">Protocol Verified.</span>`; 
         } else { 
-            playFailureSound();
+            sfx.fail();
             buttonEl.classList.add('incorrect'); 
             dialogueFeedbackEl.innerHTML = `<span class="dialogue-feedback incorrect">Error.</span> Incorrect protocol.`; 
         }
-        npcQuizAnswered[quizContext] = true; setTimeout(() => { dialogueContinue.classList.remove('ui-hidden'); }, 1500);
+        // Auto-advance dialogue instead of showing button
+        npcQuizAnswered[quizContext] = true; 
+        setTimeout(() => { showNextDialogueLine(); }, 1500);
     }
 
     function endDialogue(npc) {
@@ -1397,9 +1546,32 @@
         filterContainer.innerHTML = ''; const layerHeightPercentage = 22;
         gameState.filterLayers.forEach((layer, index) => {
             const layerDiv = document.createElement('div'); layerDiv.className = 'filter-layer';
-            if (!['Gravel', 'Sand', 'Charcoal'].includes(layer)) layerDiv.textContent = ''; else layerDiv.textContent = layer;
+            // Changed: Now displays text for all layers, not just specific correct ones
+            layerDiv.textContent = layer + " (x)"; // Visual cue for removal
+            layerDiv.style.cursor = 'pointer'; // Visual cue
+            layerDiv.title = "Click to remove";
             layerDiv.style.height = `${layerHeightPercentage}%`; layerDiv.style.bottom = `${index * layerHeightPercentage}%`;
             if (layer === 'Gravel') layerDiv.style.backgroundColor = '#9ca3af'; else if (layer === 'Sand') layerDiv.style.backgroundColor = '#facc15'; else if (layer === 'Charcoal') layerDiv.style.backgroundColor = '#1f2937'; else if (layer === 'Clay') layerDiv.style.backgroundColor = '#f97316'; else if (layer === 'Silt') layerDiv.style.backgroundColor = '#78350f'; else if (layer === 'Leaves') layerDiv.style.backgroundColor = '#15803d';
+            
+            // Add Click to Remove Handler
+            layerDiv.onclick = () => {
+                gameState.filterLayers.splice(index, 1); // Remove from state
+                
+                // Return to inventory visual
+                if (layer === 'Gravel') l2Gravel.style.display = 'block';
+                else if (layer === 'Sand') l2Sand.style.display = 'block';
+                else if (layer === 'Charcoal') l2Charcoal.style.display = 'block';
+                else if (layer === 'Clay') l2Clay.style.display = 'block';
+                else if (layer === 'Silt') l2Silt.style.display = 'block';
+                else if (layer === 'Leaves') l2Leaves.style.display = 'block';
+
+                testFilterButton.disabled = true; // Disable test if not full
+                waterAnimation.style.height = '0%'; waterAnimation.classList.remove('clean'); // Reset result
+                feedbackBox.innerHTML = '<p>Build your filter and run a test.</p>';
+                
+                renderFilterLayers(); // Re-render
+            };
+
             filterContainer.appendChild(layerDiv);
         });
     }
@@ -1436,10 +1608,15 @@
         completeObjective('select_method'); purificationChoice.classList.add('ui-hidden'); purificationCalculator.classList.remove('ui-hidden');
         logTaskEvent(`Selected Purification Method: ${method}`);
 
-        if (method === 'Chlorine' || method === 'Bleach') {
+        if (method === 'Bleach') {
             purificationResultsTitle.textContent = "Water Quality Test"; instructionText.textContent = "Calculate the correct dosage.";
             chemicalInputPanel.classList.remove('ui-hidden'); purificationGrid.classList.remove('flex', 'justify-center'); purificationGrid.classList.add('grid', 'grid-cols-2');
-            let rate; if (method === 'Chlorine') { rate = 2; selectedChemicalText.textContent = "Chlorine Drops"; selectedChemicalText.className = "text-blue-700"; } else { rate = 2; selectedChemicalText.textContent = "Household Bleach"; selectedChemicalText.className = "text-yellow-700"; }
+            
+            // Logic for Bleach only (Chlorine removed)
+            // Random rate between 5 and 8 drops per liter
+            const rate = Math.floor(Math.random() * (8 - 5 + 1)) + 5; 
+            selectedChemicalText.textContent = "Household Bleach"; selectedChemicalText.className = "text-yellow-700";
+            
             tankVolumeEl.textContent = volume; dosageRateEl.textContent = rate; chlorineInput.value = '';
             purificationFeedback.innerHTML = `<div class="feedback-icon text-gray-400">💧</div><p>Enter dosage and click "Treat Water".</p>`;
         } else if (method === 'Boil') {
@@ -1572,7 +1749,29 @@
             const r = parseInt(cell.dataset.r); const c = parseInt(cell.dataset.c); const pipeType = draggedPipe.dataset.type;
             if (!gameState.pipeGridState[r][c] && currentPipeInventory[pipeType] > 0) {
                 const valveMarker = cell.querySelector('.valve-marker'); if (!valveMarker) cell.innerHTML = ''; else { const existingPipe = cell.querySelector('.pipe-piece'); if(existingPipe) existingPipe.remove(); }
-                const newPipe = draggedPipe.cloneNode(true); newPipe.style.cursor = 'default';
+                const newPipe = draggedPipe.cloneNode(true); newPipe.style.cursor = 'pointer'; // Change cursor to pointer to indicate clickable removal
+                newPipe.onclick = (ev) => {
+                    ev.stopPropagation(); // Prevent triggering grid clicks if any
+                    // Remove Logic
+                    const typeToRemove = gameState.pipeGridState[r][c].type;
+                    gameState.pipeGridState[r][c] = null;
+                    currentPipeInventory[typeToRemove]++;
+                    const countDisplay = document.getElementById(`pipe-count-${typeToRemove}`);
+                    countDisplay.textContent = currentPipeInventory[typeToRemove];
+                    
+                    // Re-enable drag for this type if it was empty
+                    const palettePieceContainer = pipePalette.querySelector(`div[data-type='${typeToRemove}']`)?.closest('.group');
+                    const pieceInside = palettePieceContainer?.querySelector('.pipe-piece');
+                    if(pieceInside){ pieceInside.classList.remove('disabled'); pieceInside.draggable = true; }
+
+                    // Remove from DOM
+                    newPipe.remove();
+                    if (valveMarker) cell.appendChild(valveMarker); // Restore marker if needed (though logic usually replaces innerHTML, here we appended)
+                    // Simple re-render of cell content to ensure clean state
+                    cell.innerHTML = '';
+                    if (gridConfig.valves.some(v => v.r === r && v.c === c)) cell.innerHTML = '<span class="valve-marker">⚙️</span>';
+                };
+
                 if (valveMarker) cell.insertBefore(newPipe, valveMarker); else cell.appendChild(newPipe);
                 gameState.pipeGridState[r][c] = { type: newPipe.dataset.type, rotation: parseInt(newPipe.dataset.rotation) };
                 currentPipeInventory[pipeType]--; const countDisplay = document.getElementById(`pipe-count-${pipeType}`); countDisplay.textContent = currentPipeInventory[pipeType];
@@ -1667,17 +1866,18 @@
         logQuizResult(challengeQuizQuestions[currentChallengeQuestionIndex].question, selectedOption, correctAnswer);
         const options = quizOptionsEl.querySelectorAll('.quiz-option'); options.forEach(opt => { opt.disabled = true; if (opt.textContent === correctAnswer) opt.classList.add('correct'); });
         if (selectedOption === correctAnswer) { 
-            playSuccessSound();
+            sfx.success();
             challengeQuizScore++; buttonEl.classList.add('correct'); quizFeedbackEl.innerHTML = `<span class="correct font-semibold text-green-600">✔ DATA VERIFIED</span>`; 
         } 
         else { 
-            playFailureSound();
+            sfx.fail();
             buttonEl.classList.add('incorrect'); quizFeedbackEl.innerHTML = `<span class="incorrect font-semibold text-red-600">✘ DATA CORRUPT</span> <span class="text-sm text-gray-500 block">Correct: ${correctAnswer}</span>`; let currentIntegrity = parseInt(integrityScoreEl.innerText.replace('%','')); integrityScoreEl.innerText = Math.max(0, currentIntegrity - 10) + "%"; integrityScoreEl.parentElement.classList.remove('bg-blue-100', 'text-blue-600'); integrityScoreEl.parentElement.classList.add('bg-red-100', 'text-red-600'); 
         }
         if (explanation) quizFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono border-t pt-2">${explanation}</p>`;
-        quizNextButton.classList.remove('ui-hidden');
-        if (currentChallengeQuestionIndex >= challengeQuizQuestions.length - 1) quizNextButton.textContent = "UPLOAD RESULTS >>"; else quizNextButton.textContent = "CONFIRM ENTRY >>";
+        
+        // Auto-advance instead of showing Next button
         currentChallengeQuestionIndex++;
+        setTimeout(displayNextChallengeQuestion, 1500);
     }
     function endChallengeQuiz() { quizUi.classList.add('ui-hidden'); l1EndQuizResult.textContent = `You scored ${challengeQuizScore} out of ${challengeQuizQuestions.length} on the quiz!`; l1EndScreen.classList.remove('ui-hidden'); }
 
@@ -1699,11 +1899,11 @@
         logQuizResult(qData.question, selectedOption, correctAnswer);
         const options = gatekeeperOptionsEl.querySelectorAll('.gatekeeper-option'); options.forEach(opt => { opt.disabled = true; });
         if (selectedOption === correctAnswer) { 
-            playSuccessSound();
+            sfx.success();
             buttonEl.classList.add('correct'); gatekeeperFeedbackEl.innerHTML = `<span class="correct font-bold text-green-600">✔ PROTOCOL APPROVED</span>`; if (explanation) gatekeeperFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono">${explanation}</p>`; gatekeeperContinueButton.classList.remove('ui-hidden'); 
         } 
         else { 
-            playFailureSound();
+            sfx.fail();
             buttonEl.classList.add('incorrect'); gatekeeperFeedbackEl.innerHTML = `<span class="incorrect font-bold text-red-600">⚠ SAFETY HAZARD DETECTED</span> <br><span class="text-sm">Review protocols and retry.</span>`; if (explanation) gatekeeperFeedbackEl.innerHTML += `<p class="text-xs text-gray-500 mt-2 font-mono">${explanation}</p>`; setTimeout(() => { options.forEach(opt => { opt.disabled = false; opt.classList.remove('incorrect', 'correct'); }); gatekeeperFeedbackEl.innerHTML = ''; }, 2500); 
         }
     }
