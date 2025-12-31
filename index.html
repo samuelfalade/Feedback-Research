@@ -727,38 +727,31 @@
 <script>
     // --- AUDIO SYSTEM ---
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    // Pre-generate noise buffer for noise effects
+    let bgmOscillators = []; // Track active oscillators to stop music if needed
+
+    // ... (Existing noise buffer code) ...
     const noiseBufferSize = audioCtx.sampleRate * 5; 
     const noiseBuffer = audioCtx.createBuffer(1, noiseBufferSize, audioCtx.sampleRate);
     const output = noiseBuffer.getChannelData(0);
     for (let i = 0; i < noiseBufferSize; i++) {
         output[i] = Math.random() * 2 - 1;
     }
-    
+
     function playTone(freq, type, duration, vol = 0.1) {
-        // Ensure context is running (redundant check for safety)
         if (audioCtx.state === 'suspended') audioCtx.resume();
-        
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = type;
         osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
         
         const t = audioCtx.currentTime;
-        
-        // Revised Envelope: Instant Attack -> Short Sustain -> Decay
-        // This ensures very short sounds (like 0.03s type) have enough energy to be heard
         gain.gain.setValueAtTime(vol, t);
-        // Hold volume for 80% of duration
-        gain.gain.setValueAtTime(vol, t + (duration * 0.8)); 
-        // Fade out in the last 20%
         gain.gain.linearRampToValueAtTime(0.001, t + duration);
         
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start(t);
-        osc.stop(t + duration + 0.05); // Stop slightly after fade out
+        osc.stop(t + duration + 0.05); 
     }
 
     function playNoise(duration) {
@@ -778,7 +771,82 @@
         src.stop(t + duration);
     }
     
-    // SFX Object - EXACTLY as requested
+    // NEW: Action-Adventure Style BGM (Retro Chiptune)
+    // Faster tempo, square wave
+    const bgmMelody = [
+        // --- Section A (Main Theme) ---
+        { f: 392.00, d: 0.2 }, { f: 523.25, d: 0.2 }, { f: 659.25, d: 0.2 }, { f: 783.99, d: 0.4 }, // G C E G
+        { f: 659.25, d: 0.2 }, { f: 523.25, d: 0.2 }, { f: 392.00, d: 0.4 }, // E C G
+        { f: 440.00, d: 0.2 }, { f: 523.25, d: 0.2 }, { f: 587.33, d: 0.2 }, { f: 698.46, d: 0.4 }, // A C D F
+        { f: 587.33, d: 0.2 }, { f: 523.25, d: 0.2 }, { f: 440.00, d: 0.4 }, // D C A
+
+        { f: 392.00, d: 0.2 }, { f: 523.25, d: 0.2 }, { f: 659.25, d: 0.2 }, { f: 783.99, d: 0.4 }, // G C E G
+        { f: 880.00, d: 0.2 }, { f: 987.77, d: 0.2 }, { f: 1046.50, d: 0.4 }, // A B C(high)
+        { f: 783.99, d: 0.2 }, { f: 659.25, d: 0.2 }, { f: 587.33, d: 0.2 }, { f: 523.25, d: 0.4 }, // G E D C
+        { f: 0, d: 0.2 }, // Brief Rest
+
+        // --- Section B (Variation / Bridge) ---
+        { f: 349.23, d: 0.3 }, { f: 440.00, d: 0.3 }, { f: 523.25, d: 0.3 }, // F A C
+        { f: 587.33, d: 0.6 }, { f: 523.25, d: 0.3 }, // D(long) C
+        { f: 493.88, d: 0.3 }, { f: 392.00, d: 0.3 }, { f: 293.66, d: 0.3 }, // B G D
+        { f: 261.63, d: 0.6 }, { f: 0, d: 0.3 }, // C(long)
+
+        // --- Turnaround (Leads back to start) ---
+        { f: 293.66, d: 0.2 }, { f: 329.63, d: 0.2 }, { f: 349.23, d: 0.2 }, // D E F
+        { f: 392.00, d: 0.2 }, { f: 0, d: 0.1 }, // G
+        { f: 196.00, d: 0.3 } // G(low) - Anchors the loop back to start
+    ];
+
+    let bgmIndex = 0;
+    let nextNoteTime = 0;
+    let bgmRunning = false;
+
+    function startBGM() {
+        if (bgmRunning) return;
+        bgmRunning = true;
+        nextNoteTime = audioCtx.currentTime + 0.1;
+        scheduler();
+    }
+
+    function stopBGM() {
+        bgmRunning = false;
+        clearTimeout(timerID);
+    }
+
+    let timerID;
+    function scheduler() {
+        if (!bgmRunning) return;
+        while (nextNoteTime < audioCtx.currentTime + 0.1) {
+            scheduleNote(bgmMelody[bgmIndex], nextNoteTime);
+            nextNoteTime += bgmMelody[bgmIndex].d; 
+            bgmIndex = (bgmIndex + 1) % bgmMelody.length; 
+        }
+        timerID = setTimeout(scheduler, 25);
+    }
+
+    function scheduleNote(note, time) {
+        if (note.f === 0) return; // Rest
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square'; // Chiptune / Retro style
+        osc.frequency.setValueAtTime(note.f, time);
+        
+        // "Plucky" Envelope
+        // Attack: 0.01s, Sustain: 0.1, Decay: short
+        const vol = 0.05; // Keep background volume low
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(vol, time + 0.01);
+        gain.gain.linearRampToValueAtTime(vol * 0.5, time + 0.1); // Decay to half volume
+        gain.gain.linearRampToValueAtTime(0, time + note.d - 0.01); // Release
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(time);
+        osc.stop(time + note.d);
+    }
+
+    // SFX Object
     const sfx = {
         success: () => { playTone(600,'sine',0.1); setTimeout(()=>playTone(800,'sine',0.2),100); },
         fail: () => { playTone(300,'sawtooth',0.2); setTimeout(()=>playTone(200,'sawtooth',0.2),150); },
@@ -1210,6 +1278,7 @@
     }
 
     // --- GAME START & TRANSITIONS ---
+    // --- GAME START FUNCTION (Needed for listener) ---
     function handleStartClick() {
         const idInput = document.getElementById('player-id-input');
         if (!idInput.value.trim()) {
@@ -1217,15 +1286,14 @@
             return;
         }
         
-        // FORCE UNLOCK AUDIO: This is the critical fix for "no sound"
-        // We explicitly resume() on the click event.
         if (audioCtx.state === 'suspended') {
             audioCtx.resume().then(() => {
-                console.log("AudioContext resumed successfully.");
-                sfx.success(); // Play feedback sound immediately
+                sfx.success(); 
+                startBGM(); // Start music on unlock
             });
         } else {
              sfx.success();
+             startBGM(); // Start music if already unlocked
         }
 
         sessionData.playerId = idInput.value.trim();
